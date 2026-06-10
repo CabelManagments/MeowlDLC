@@ -1,61 +1,36 @@
-buildscript {
-    repositories {
-        maven { url = 'https://maven.minecraftforge.net' }
-        mavenCentral()
-    }
-    dependencies {
-        classpath group: 'net.minecraftforge.gradle', name: 'ForgeGradle', version: '4.1.+', changing: true
-    }
+plugins {
+    id 'java'
 }
-
-apply plugin: 'net.minecraftforge.gradle'
-apply plugin: 'java'
 
 version = '1.0.0'
 group = 'com.yourcheat'
 archivesBaseName = 'yourcheat'
 
-java.toolchain.languageVersion = JavaLanguageVersion.of(8)
-
-minecraft {
-    mappings channel: 'official', version: '1.16.5'
-
-    runs {
-        client {
-            workingDirectory project.file('run')
-            mods {
-                yourcheat { source sourceSets.main }
-            }
-        }
-    }
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
 }
 
 repositories {
+    maven { url = 'https://maven.minecraftforge.net' }
     mavenCentral()
 }
 
-dependencies {
-    minecraft 'net.minecraftforge:forge:1.16.5-36.2.34'
+configurations {
+    forgeCompile
+    compileOnly.extendsFrom forgeCompile
 }
 
-// Отключаем все задачи связанные с маппингами/reobf
-afterEvaluate {
-    tasks.matching { it.name in ['reobfJar', 'createMcpToSrg', 'extractSrg', 'downloadMcpConfig'] }.each {
-        it.enabled = false
-    }
-    // Убираем зависимость jar от reobf
-    tasks.jar.finalizedBy.clear()
+dependencies {
+    forgeCompile 'net.minecraftforge:forge:1.16.5-36.2.34:universal'
 }
 
 jar {
     manifest {
         attributes([
             'Specification-Title'    : 'yourcheat',
-            'Specification-Vendor'   : 'yourcheat',
-            'Specification-Version'  : '1',
             'Implementation-Title'   : project.name,
-            'Implementation-Version' : project.jar.archiveVersion,
-            'Implementation-Vendor'  : 'yourcheat',
+            'Implementation-Version' : project.version,
         ])
     }
 }
