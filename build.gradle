@@ -11,6 +11,18 @@ java {
     targetCompatibility = JavaVersion.VERSION_1_8
 }
 
+// Говорим gradle что исходники лежат прямо в корне репо
+sourceSets {
+    main {
+        java {
+            srcDirs = ['.']
+            exclude 'build/**'
+            exclude '.github/**'
+            exclude 'gradle/**'
+        }
+    }
+}
+
 repositories {
     maven { url = 'https://maven.minecraftforge.net' }
     mavenCentral()
