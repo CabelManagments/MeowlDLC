@@ -18,12 +18,12 @@ sourceSets {
             exclude 'build/**'
             exclude '.github/**'
             exclude 'gradle/**'
+            exclude 'libs/**'
         }
     }
 }
 
 repositories {
-    maven { url = 'https://libraries.minecraft.net' }
     maven { url = 'https://maven.minecraftforge.net' }
     mavenCentral()
 }
@@ -34,14 +34,14 @@ configurations {
 }
 
 dependencies {
-    // Forge universal (содержит Forge классы + EventBus)
+    // Forge universal
     mcCompile 'net.minecraftforge:forge:1.16.5-36.2.34:universal'
-    // Minecraft client jar (содержит net.minecraft.*, com.mojang.*)
-    mcCompile 'com.mojang:minecraft:1.16.5:client'
-    // LWJGL (GL11, GLFW и т.д.)
+    // LWJGL
     mcCompile 'org.lwjgl:lwjgl:3.2.2'
     mcCompile 'org.lwjgl:lwjgl-opengl:3.2.2'
     mcCompile 'org.lwjgl:lwjgl-glfw:3.2.2'
+    // Minecraft client jar (скачивается в workflow в папку libs/)
+    mcCompile fileTree(dir: 'libs', include: '*.jar')
 }
 
 jar {
