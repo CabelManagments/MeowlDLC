@@ -26,12 +26,6 @@ jobs:
           curl -L "https://github.com/gradle/gradle/raw/v6.8.3/gradle/wrapper/gradle-wrapper.jar" \
             -o gradle/wrapper/gradle-wrapper.jar
 
-      - name: Download Minecraft 1.16.5 client jar
-        run: |
-          mkdir -p libs
-          curl -L "https://launcher.mojang.com/v1/objects/37fd3c903861eeff3bc24b71eed48f828b5269c8/client.jar" \
-            -o libs/minecraft-1.16.5-client.jar
-
       - name: Grant execute permission to gradlew
         run: chmod +x gradlew
 
@@ -46,7 +40,9 @@ jobs:
             ${{ runner.os }}-gradle-
 
       - name: Build with Gradle
-        run: ./gradlew build --no-daemon
+        run: ./gradlew jar --no-daemon
+        env:
+          GRADLE_OPTS: "-Xmx3g"
 
       - name: Upload JAR
         uses: actions/upload-artifact@v4
