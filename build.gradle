@@ -18,17 +18,13 @@ archivesBaseName = 'yourcheat'
 java.toolchain.languageVersion = JavaLanguageVersion.of(8)
 
 minecraft {
-    mappings channel: 'stable', version: '39-1.16.5'
+    mappings channel: 'official', version: '1.16.5'
 
     runs {
         client {
             workingDirectory project.file('run')
-            property 'forge.logging.markers', 'REGISTRIES'
-            property 'forge.logging.console.level', 'debug'
             mods {
-                yourcheat {
-                    source sourceSets.main
-                }
+                yourcheat { source sourceSets.main }
             }
         }
     }
@@ -42,15 +38,23 @@ dependencies {
     minecraft 'net.minecraftforge:forge:1.16.5-36.2.34'
 }
 
+// Отключаем reobfuscation — берём jar как есть
+// (нужен только для публикации на моддинг-сайты, для личного чита не нужен)
+tasks.whenTaskAdded { task ->
+    if (task.name == 'reobfJar') {
+        task.enabled = false
+    }
+}
+
 jar {
     manifest {
         attributes([
-            'Specification-Title'     : 'yourcheat',
-            'Specification-Vendor'    : 'yourcheat',
-            'Specification-Version'   : '1',
-            'Implementation-Title'    : project.name,
-            'Implementation-Version'  : project.jar.archiveVersion,
-            'Implementation-Vendor'   : 'yourcheat',
+            'Specification-Title'    : 'yourcheat',
+            'Specification-Vendor'   : 'yourcheat',
+            'Specification-Version'  : '1',
+            'Implementation-Title'   : project.name,
+            'Implementation-Version' : project.jar.archiveVersion,
+            'Implementation-Vendor'  : 'yourcheat',
         ])
     }
 }
