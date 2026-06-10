@@ -40,10 +40,9 @@ jobs:
             ${{ runner.os }}-gradle-
 
       - name: Build with Gradle
-        run: ./gradlew build --no-daemon --info 2>&1 | grep -E "(error:|warning:|compileJava|FAILED|Exception)" | head -60
+        run: ./gradlew build --no-daemon
 
       - name: Upload JAR
-        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: yourcheat-jar
