@@ -11,7 +11,6 @@ java {
     targetCompatibility = JavaVersion.VERSION_1_8
 }
 
-// Говорим gradle что исходники лежат прямо в корне репо
 sourceSets {
     main {
         java {
@@ -24,17 +23,25 @@ sourceSets {
 }
 
 repositories {
+    maven { url = 'https://libraries.minecraft.net' }
     maven { url = 'https://maven.minecraftforge.net' }
     mavenCentral()
 }
 
 configurations {
-    forgeCompile
-    compileOnly.extendsFrom forgeCompile
+    mcCompile
+    compileOnly.extendsFrom mcCompile
 }
 
 dependencies {
-    forgeCompile 'net.minecraftforge:forge:1.16.5-36.2.34:universal'
+    // Forge universal (содержит Forge классы + EventBus)
+    mcCompile 'net.minecraftforge:forge:1.16.5-36.2.34:universal'
+    // Minecraft client jar (содержит net.minecraft.*, com.mojang.*)
+    mcCompile 'com.mojang:minecraft:1.16.5:client'
+    // LWJGL (GL11, GLFW и т.д.)
+    mcCompile 'org.lwjgl:lwjgl:3.2.2'
+    mcCompile 'org.lwjgl:lwjgl-opengl:3.2.2'
+    mcCompile 'org.lwjgl:lwjgl-glfw:3.2.2'
 }
 
 jar {
