@@ -48,5 +48,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: yourcheat-jar
-          path: build/libs/*-dev.jar
+          path: build/libs/*.jar
+          exclude: build/libs/*-sources.jar
           if-no-files-found: error
