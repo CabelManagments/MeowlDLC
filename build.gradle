@@ -1,5 +1,5 @@
 plugins {
-    id 'fabric-loom' version '1.9-SNAPSHOT'
+    id 'fabric-loom' version '1.7.4'
     id 'java'
 }
 
@@ -19,12 +19,11 @@ dependencies {
     modImplementation 'net.fabricmc.fabric-api:fabric-api:0.119.2+1.21.4'
 }
 
-// Структура репо плоская — java файлы прямо в корне/gui/modules/mixin
 sourceSets {
     main {
         java {
             srcDirs = ['.']
-            exclude 'build/**', '.github/**', 'gradle/**', '*.gradle', '*.properties'
+            exclude 'build/**', '.github/**', 'gradle/**', '*.gradle', '*.properties', 'resources/**'
         }
         resources {
             srcDirs = ['resources']
@@ -35,10 +34,4 @@ sourceSets {
 java {
     sourceCompatibility = JavaVersion.VERSION_21
     targetCompatibility = JavaVersion.VERSION_21
-}
-
-jar {
-    from('LICENSE') {
-        rename { "${it}_${archivesBaseName}" }
-    }
 }
