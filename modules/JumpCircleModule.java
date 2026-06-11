@@ -80,8 +80,8 @@ public class JumpCircleModule implements IModule {
             float z1 = (float)(radius * Math.sin(a1));
             float x2 = (float)(radius * Math.cos(a2));
             float z2 = (float)(radius * Math.sin(a2));
-            vc.vertex(mat, x1, 0.05f, z1).color(r, g, b, a).normal(ms.peek().getNormalMatrix(), 0, 1, 0);
-            vc.vertex(mat, x2, 0.05f, z2).color(r, g, b, a).normal(ms.peek().getNormalMatrix(), 0, 1, 0);
+            vc.vertex(mat, x1, 0.05f, z1).color(r, g, b, a).normal(ms.peek(), 0, 1, 0);
+            vc.vertex(mat, x2, 0.05f, z2).color(r, g, b, a).normal(ms.peek(), 0, 1, 0);
         }
 
         vcp.draw(RenderLayer.getLines());
