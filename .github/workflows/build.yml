@@ -14,16 +14,16 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Set up Java 8
+      - name: Set up Java 21
         uses: actions/setup-java@v4
         with:
-          java-version: '8'
+          java-version: '21'
           distribution: 'temurin'
 
       - name: Download gradle-wrapper.jar
         run: |
           mkdir -p gradle/wrapper
-          curl -L "https://github.com/gradle/gradle/raw/v6.8.3/gradle/wrapper/gradle-wrapper.jar" \
+          curl -L "https://github.com/gradle/gradle/raw/v8.8.0/gradle/wrapper/gradle-wrapper.jar" \
             -o gradle/wrapper/gradle-wrapper.jar
 
       - name: Grant execute permission to gradlew
@@ -35,23 +35,18 @@ jobs:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: ${{ runner.os }}-forge-${{ hashFiles('**/*.gradle*') }}
+          key: ${{ runner.os }}-fabric-${{ hashFiles('**/*.gradle*') }}
           restore-keys: |
-            ${{ runner.os }}-forge-
+            ${{ runner.os }}-fabric-
 
-      - name: Setup Forge dependencies
-        run: ./gradlew --no-daemon --refresh-dependencies downloadMCMeta extractSrg createMcpToSrg || true
+      - name: Build with Gradle
+        run: ./gradlew build --no-daemon
         env:
-          GRADLE_OPTS: "-Xmx3g"
-
-      - name: Build JAR
-        run: ./gradlew --no-daemon jar
-        env:
-          GRADLE_OPTS: "-Xmx3g"
+          GRADLE_OPTS: "-Xmx2g"
 
       - name: Upload JAR
         uses: actions/upload-artifact@v4
         with:
           name: yourcheat-jar
-          path: build/libs/*.jar
-          if-no-files-found: warn
+          path: build/libs/*-dev.jar
+          if-no-files-found: error

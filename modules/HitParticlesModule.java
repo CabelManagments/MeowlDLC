@@ -1,53 +1,35 @@
 package com.yourcheat.modules;
 
-import com.mojang.blaze3d.matrix.MatrixStack;
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.yourcheat.gui.ClickGUI;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.ActiveRenderInfo;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.util.DamageSource;
-import net.minecraft.util.math.vector.Matrix4f;
-import net.minecraft.util.math.vector.Vector3d;
-import net.minecraft.util.math.vector.Vector3f;
-import net.minecraftforge.client.event.RenderWorldLastEvent;
-import net.minecraftforge.event.entity.living.LivingHurtEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import org.lwjgl.opengl.GL11;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.render.RenderLayer;
+import net.minecraft.client.render.VertexConsumer;
+import net.minecraft.client.render.VertexConsumerProvider;
+import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.util.math.Vec3d;
+import org.joml.Matrix4f;
+import org.joml.Quaternionf;
 
-import com.mojang.blaze3d.vertex.DefaultVertexFormats;
-
-import java.awt.*;
+import java.awt.Color;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 
-/**
- * HitParticles — при ударе врага появляются снежинки или сердечки.
- *
- * Подпиши: MinecraftForge.EVENT_BUS.register(HitParticlesModule.INSTANCE);
- *
- * Два типа частиц:
- *  TYPE_SNOWFLAKE — рисует 6-лучевую снежинку через GL_LINES
- *  TYPE_HEART     — рисует сердечко через GL_LINE_LOOP
- */
-public class HitParticlesModule implements IClientModule {
+public class HitParticlesModule implements IModule {
 
-    public static final HitParticlesModule INSTANCE = new HitParticlesModule();
-    private HitParticlesModule() {}
-
-    // ── Настройки ──────────────────────────────────────────────────
     private boolean enabled    = false;
-    public float particleSize  = 0.15f;   // размер частицы
-    public float lineThickness = 1.5f;    // толщина линий
+    public float particleSize  = 0.15f;
+    public float lineThickness = 1.5f;
     public Color color         = new Color(180, 120, 255, 230);
-    public boolean useHearts   = false;   // false = снежинки, true = сердечки
-    public int count           = 8;       // кол-во частиц за хит
+    public boolean useHearts   = false;
+    public int count           = 8;
 
     private static final Random RNG = new Random();
     private final List<Particle> particles = new ArrayList<>();
 
+    @Override public String getName() { return "HitParticles"; }
     @Override public boolean isEnabled() { return enabled; }
     @Override public void setEnabled(boolean v) { enabled = v; if (!v) particles.clear(); }
 
@@ -58,59 +40,32 @@ public class HitParticlesModule implements IClientModule {
         list.add(new ClickGUI.SliderSetting("Thickness", lineThickness, 0.5f,  4.0f, v -> lineThickness = v));
         list.add(new ClickGUI.SliderSetting("Count",     count,         2,     16,   v -> count = (int)v));
         list.add(new ClickGUI.ColorSetting("Color", color, c -> color = c));
-        list.add(new ClickGUI.BoolSetting("Hearts (not snowflakes)", useHearts, v -> useHearts = v));
+        list.add(new ClickGUI.BoolSetting("Hearts", useHearts, v -> useHearts = v));
         return list;
     }
 
-    // ── Спавн частиц при хите ─────────────────────────────────────
-    @SubscribeEvent
-    public void onLivingHurt(LivingHurtEvent event) {
+    /** Вызывается из mixin когда игрок наносит урон */
+    public void spawnAt(double x, double y, double z) {
         if (!enabled) return;
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.player == null) return;
-        // Только если наш игрок нанёс урон
-        if (event.getSource() != DamageSource.causePlayerDamage(mc.player)) return;
-
-        LivingEntity victim = event.getEntityLiving();
-        double x = victim.getPosX();
-        double y = victim.getPosY() + victim.getHeight() * 0.7;
-        double z = victim.getPosZ();
-
         for (int i = 0; i < count; i++) {
             double vx = (RNG.nextDouble() - 0.5) * 0.15;
             double vy = RNG.nextDouble() * 0.12 + 0.04;
             double vz = (RNG.nextDouble() - 0.5) * 0.15;
-            float rotation = RNG.nextFloat() * 360f;
-            particles.add(new Particle(x, y, z, vx, vy, vz, rotation));
+            particles.add(new Particle(x, y, z, vx, vy, vz, RNG.nextFloat() * 360f));
         }
     }
 
-    // ── Рендер ─────────────────────────────────────────────────────
-    @SubscribeEvent
-    public void onRenderWorld(RenderWorldLastEvent event) {
+    public void onRender(WorldRenderContext ctx) {
         if (!enabled || particles.isEmpty()) return;
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.player == null) return;
+        MinecraftClient mc = MinecraftClient.getInstance();
 
-        float pt = event.getPartialTicks();
-        Vector3d cam = mc.gameRenderer.getActiveRenderInfo().getProjectedView();
-        ActiveRenderInfo ari = mc.gameRenderer.getActiveRenderInfo();
+        float pt = ctx.tickCounter().getTickDelta(true);
+        Vec3d cam = ctx.camera().getPos();
+        float yaw   = ctx.camera().getYaw();
+        float pitch = ctx.camera().getPitch();
 
-        // Углы камеры для billboarding
-        float yaw   = ari.getYaw();
-        float pitch = ari.getPitch();
-
-        MatrixStack ms = event.getMatrixStack();
-
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.disableTexture();
-        RenderSystem.disableDepthTest();
-        RenderSystem.lineWidth(Math.max(1f, lineThickness));
-
-        float r = color.getRed()   / 255f;
-        float g = color.getGreen() / 255f;
-        float b = color.getBlue()  / 255f;
+        MatrixStack ms = ctx.matrixStack();
+        VertexConsumerProvider.Immediate vcp = mc.getBufferBuilders().getEntityVertexConsumers();
 
         Iterator<Particle> it = particles.iterator();
         while (it.hasNext()) {
@@ -118,119 +73,82 @@ public class HitParticlesModule implements IClientModule {
             p.tick();
             if (p.life <= 0) { it.remove(); continue; }
 
-            float alpha = (color.getAlpha() / 255f) * ((float)p.life / p.maxLife);
-
-            double dx = p.x - cam.x;
-            double dy = p.y - cam.y;
-            double dz = p.z - cam.z;
+            float a = (color.getAlpha() / 255f) * ((float) p.life / p.maxLife);
+            float r = color.getRed()   / 255f;
+            float g = color.getGreen() / 255f;
+            float b = color.getBlue()  / 255f;
 
             ms.push();
-            ms.translate(dx, dy, dz);
+            ms.translate(p.x - cam.x, p.y - cam.y, p.z - cam.z);
+            ms.multiply(new Quaternionf().rotationY((float) Math.toRadians(-yaw)));
+            ms.multiply(new Quaternionf().rotationX((float) Math.toRadians(pitch)));
+            ms.multiply(new Quaternionf().rotationZ((float) Math.toRadians(p.rotation + p.life * 3f)));
 
-            // Billboard: повернуть к камере
-            ms.rotate(new net.minecraft.util.math.vector.Quaternion(
-                new Vector3f(0, 1, 0), -yaw, true));
-            ms.rotate(new net.minecraft.util.math.vector.Quaternion(
-                new Vector3f(1, 0, 0), pitch, true));
+            VertexConsumer vc = vcp.getBuffer(RenderLayer.getLines());
+            Matrix4f mat = ms.peek().getPositionMatrix();
+            var nm = ms.peek().getNormalMatrix();
 
-            // Spin-анимация частицы
-            ms.rotate(new net.minecraft.util.math.vector.Quaternion(
-                new Vector3f(0, 0, 1), p.rotation + p.life * 3f, true));
+            if (useHearts) drawHeart(vc, mat, nm, ms, particleSize, r, g, b, a);
+            else           drawSnowflake(vc, mat, nm, ms, particleSize, r, g, b, a);
 
-            Matrix4f mat = ms.getLast().getMatrix();
-
-            if (useHearts) {
-                drawHeart(mat, particleSize, r, g, b, alpha);
-            } else {
-                drawSnowflake(mat, particleSize, r, g, b, alpha);
-            }
-
+            vcp.draw(RenderLayer.getLines());
             ms.pop();
         }
-
-        RenderSystem.enableDepthTest();
-        RenderSystem.enableTexture();
-        RenderSystem.disableBlend();
-        RenderSystem.lineWidth(1f);
     }
 
-    /** Рисует 6-лучевую снежинку */
-    private void drawSnowflake(Matrix4f mat, float size, float r, float g, float b, float a) {
-        com.mojang.blaze3d.vertex.BufferBuilder buf =
-            com.mojang.blaze3d.vertex.Tessellator.getInstance().getBuffer();
-        buf.begin(GL11.GL_LINES, DefaultVertexFormats.POSITION_COLOR);
-
-        // 6 основных лучей
+    private void drawSnowflake(VertexConsumer vc, Matrix4f mat, org.joml.Matrix3f nm,
+                               MatrixStack ms, float size, float r, float g, float b, float a) {
         for (int i = 0; i < 6; i++) {
             double angle = Math.PI / 3 * i;
             float ex = (float)(Math.cos(angle) * size);
             float ey = (float)(Math.sin(angle) * size);
-            buf.pos(mat, 0, 0, 0).color(r, g, b, a).endVertex();
-            buf.pos(mat, ex, ey, 0).color(r, g, b, a).endVertex();
+            vc.vertex(mat,0,0,0).color(r,g,b,a).normal(nm,0,0,1);
+            vc.vertex(mat,ex,ey,0).color(r,g,b,a).normal(nm,0,0,1);
 
-            // ветки на каждом луче (на 2/3 от центра)
             float bx = (float)(Math.cos(angle) * size * 0.6f);
             float by = (float)(Math.sin(angle) * size * 0.6f);
-            double ba1 = angle + Math.PI / 4;
-            double ba2 = angle - Math.PI / 4;
-            float branchLen = size * 0.3f;
-            buf.pos(mat, bx, by, 0).color(r, g, b, a).endVertex();
-            buf.pos(mat, bx + (float)(Math.cos(ba1) * branchLen),
-                        by + (float)(Math.sin(ba1) * branchLen), 0)
-               .color(r, g, b, a).endVertex();
-            buf.pos(mat, bx, by, 0).color(r, g, b, a).endVertex();
-            buf.pos(mat, bx + (float)(Math.cos(ba2) * branchLen),
-                        by + (float)(Math.sin(ba2) * branchLen), 0)
-               .color(r, g, b, a).endVertex();
+            float bl = size * 0.3f;
+            double ba1 = angle + Math.PI/4, ba2 = angle - Math.PI/4;
+            vc.vertex(mat,bx,by,0).color(r,g,b,a).normal(nm,0,0,1);
+            vc.vertex(mat,bx+(float)(Math.cos(ba1)*bl),by+(float)(Math.sin(ba1)*bl),0).color(r,g,b,a).normal(nm,0,0,1);
+            vc.vertex(mat,bx,by,0).color(r,g,b,a).normal(nm,0,0,1);
+            vc.vertex(mat,bx+(float)(Math.cos(ba2)*bl),by+(float)(Math.sin(ba2)*bl),0).color(r,g,b,a).normal(nm,0,0,1);
         }
-
-        com.mojang.blaze3d.vertex.Tessellator.getInstance().draw();
     }
 
-    /** Рисует сердечко через параметрическую кривую */
-    private void drawHeart(Matrix4f mat, float size, float r, float g, float b, float a) {
-        int segments = 40;
-        com.mojang.blaze3d.vertex.BufferBuilder buf =
-            com.mojang.blaze3d.vertex.Tessellator.getInstance().getBuffer();
-        buf.begin(GL11.GL_LINE_LOOP, DefaultVertexFormats.POSITION_COLOR);
-
-        for (int i = 0; i < segments; i++) {
-            double t = (2.0 * Math.PI * i / segments) - Math.PI;
-            // параметрическое сердечко
-            float hx = (float)(size * 16 * Math.pow(Math.sin(t), 3) / 16.0);
-            float hy = (float)(size * (13 * Math.cos(t) - 5 * Math.cos(2*t)
-                                    - 2 * Math.cos(3*t) - Math.cos(4*t)) / 16.0);
-            buf.pos(mat, hx, hy, 0).color(r, g, b, a).endVertex();
+    private void drawHeart(VertexConsumer vc, Matrix4f mat, org.joml.Matrix3f nm,
+                           MatrixStack ms, float size, float r, float g, float b, float a) {
+        int seg = 40;
+        for (int i = 0; i < seg; i++) {
+            double t1 = (2.0 * Math.PI * i / seg) - Math.PI;
+            double t2 = (2.0 * Math.PI * (i+1) / seg) - Math.PI;
+            float x1 = (float)(size * 16 * Math.pow(Math.sin(t1), 3) / 16.0);
+            float y1 = (float)(size * (13*Math.cos(t1)-5*Math.cos(2*t1)-2*Math.cos(3*t1)-Math.cos(4*t1)) / 16.0);
+            float x2 = (float)(size * 16 * Math.pow(Math.sin(t2), 3) / 16.0);
+            float y2 = (float)(size * (13*Math.cos(t2)-5*Math.cos(2*t2)-2*Math.cos(3*t2)-Math.cos(4*t2)) / 16.0);
+            vc.vertex(mat,x1,y1,0).color(r,g,b,a).normal(nm,0,0,1);
+            vc.vertex(mat,x2,y2,0).color(r,g,b,a).normal(nm,0,0,1);
         }
-
-        com.mojang.blaze3d.vertex.Tessellator.getInstance().draw();
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    // ── Particle ───────────────────────────────────────────────────
-    // ═══════════════════════════════════════════════════════════════
     private static class Particle {
-        double x, y, z;
-        double vx, vy, vz;
+        double x, y, z, vx, vy, vz;
         float rotation;
         int life, maxLife;
 
         Particle(double x, double y, double z, double vx, double vy, double vz, float rot) {
-            this.x = x; this.y = y; this.z = z;
-            this.vx = vx; this.vy = vy; this.vz = vz;
-            this.rotation = rot;
-            this.maxLife = 20 + RNG.nextInt(10); // 20-30 тиков
+            this.x=x; this.y=y; this.z=z;
+            this.vx=vx; this.vy=vy; this.vz=vz;
+            this.rotation=rot;
+            this.maxLife = 20 + RNG.nextInt(10);
             this.life = maxLife;
         }
 
         void tick() {
-            x += vx; y += vy; z += vz;
-            vy -= 0.005; // гравитация
-            vx *= 0.92; vz *= 0.92;
+            x+=vx; y+=vy; z+=vz;
+            vy -= 0.005; vx *= 0.92; vz *= 0.92;
             life--;
         }
-
-        static final Random RNG = new Random();
     }
 }
 

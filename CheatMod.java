@@ -1,46 +1,48 @@
 package com.yourcheat;
 
-import com.yourcheat.gui.ClickGUI;
 import com.yourcheat.modules.HitParticlesModule;
 import com.yourcheat.modules.JumpCircleModule;
 import com.yourcheat.modules.TargetESPModule;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.settings.KeyBinding;
-import net.minecraftforge.client.event.InputEvent;
-import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.client.registry.ClientRegistry;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
-import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.option.KeyBinding;
+import net.minecraft.client.util.InputUtil;
 import org.lwjgl.glfw.GLFW;
 
-@Mod("yourcheat")
-public class CheatMod {
+public class CheatMod implements ClientModInitializer {
 
     public static KeyBinding guiKey;
 
-    public CheatMod() {
-        // Регистрируем onClientSetup на MOD bus
-        FMLJavaModLoadingContext.get().getModEventBus().addListener(this::onClientSetup);
-        // Регистрируем события (KeyInput, и модули) на FORGE bus
-        MinecraftForge.EVENT_BUS.register(this);
-        MinecraftForge.EVENT_BUS.register(JumpCircleModule.INSTANCE);
-        MinecraftForge.EVENT_BUS.register(TargetESPModule.INSTANCE);
-        MinecraftForge.EVENT_BUS.register(HitParticlesModule.INSTANCE);
-    }
+    // Инстансы модулей
+    public static final JumpCircleModule jumpCircle   = new JumpCircleModule();
+    public static final TargetESPModule  targetESP    = new TargetESPModule();
+    public static final HitParticlesModule hitParticles = new HitParticlesModule();
 
-    private void onClientSetup(FMLClientSetupEvent event) {
-        guiKey = new KeyBinding("Open ClickGUI", GLFW.GLFW_KEY_RIGHT_SHIFT, "YourCheat");
-        ClientRegistry.registerKeyBinding(guiKey);
-    }
+    @Override
+    public void onInitializeClient() {
+        // Регистрируем кейбинд Right Shift
+        guiKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+            "key.yourcheat.gui",
+            InputUtil.Type.KEYSYM,
+            GLFW.GLFW_KEY_RIGHT_SHIFT,
+            "category.yourcheat"
+        ));
 
-    @SubscribeEvent
-    public void onKeyInput(InputEvent.KeyInputEvent event) {
-        Minecraft mc = Minecraft.getInstance();
-        if (guiKey != null && guiKey.isPressed() && mc.currentScreen == null) {
-            mc.displayGuiScreen(new ClickGUI());
-        }
+        // Открываем GUI по кейбинду
+        ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            if (guiKey.wasPressed() && client.currentScreen == null) {
+                client.setScreen(new com.yourcheat.gui.ClickGUI());
+            }
+        });
+
+        // Регистрируем рендер событие для модулей
+        WorldRenderEvents.AFTER_ENTITIES.register(ctx -> {
+            jumpCircle.onRender(ctx);
+            targetESP.onRender(ctx);
+            hitParticles.onRender(ctx);
+        });
     }
 }
-

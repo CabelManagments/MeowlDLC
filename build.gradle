@@ -1,60 +1,44 @@
-buildscript {
-    repositories {
-        maven { url = 'https://maven.minecraftforge.net' }
-        mavenCentral()
-    }
-    dependencies {
-        classpath group: 'net.minecraftforge.gradle', name: 'ForgeGradle', version: '4.1.+', changing: true
-    }
+plugins {
+    id 'fabric-loom' version '1.9-SNAPSHOT'
+    id 'java'
 }
-
-apply plugin: 'net.minecraftforge.gradle'
-apply plugin: 'java'
 
 version = '1.0.0'
 group = 'com.yourcheat'
 archivesBaseName = 'yourcheat'
 
-java.toolchain.languageVersion = JavaLanguageVersion.of(8)
+repositories {
+    mavenCentral()
+    maven { url = 'https://maven.fabricmc.net/' }
+}
 
+dependencies {
+    minecraft 'com.mojang:minecraft:1.21.4'
+    mappings 'net.fabricmc:yarn:1.21.4+build.8:v2'
+    modImplementation 'net.fabricmc:fabric-loader:0.16.9'
+    modImplementation 'net.fabricmc.fabric-api:fabric-api:0.119.2+1.21.4'
+}
+
+// Структура репо плоская — java файлы прямо в корне/gui/modules/mixin
 sourceSets {
     main {
         java {
             srcDirs = ['.']
-            exclude 'build/**'
-            exclude '.github/**'
-            exclude 'gradle/**'
+            exclude 'build/**', '.github/**', 'gradle/**', '*.gradle', '*.properties'
+        }
+        resources {
+            srcDirs = ['resources']
         }
     }
 }
 
-minecraft {
-    mappings channel: 'snapshot', version: '20201028-1.16.3'
-
-    runs {
-        client {
-            workingDirectory project.file('run')
-            mods {
-                yourcheat { source sourceSets.main }
-            }
-        }
-    }
-}
-
-repositories {
-    mavenCentral()
-}
-
-dependencies {
-    minecraft 'net.minecraftforge:forge:1.16.5-36.2.34'
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
 }
 
 jar {
-    manifest {
-        attributes([
-            'Specification-Title'    : 'yourcheat',
-            'Implementation-Title'   : project.name,
-            'Implementation-Version' : project.version,
-        ])
+    from('LICENSE') {
+        rename { "${it}_${archivesBaseName}" }
     }
 }
