@@ -35,12 +35,17 @@ jobs:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*') }}
+          key: ${{ runner.os }}-forge-${{ hashFiles('**/*.gradle*') }}
           restore-keys: |
-            ${{ runner.os }}-gradle-
+            ${{ runner.os }}-forge-
 
-      - name: Build with Gradle
-        run: ./gradlew jar --no-daemon
+      - name: Setup Forge dependencies
+        run: ./gradlew --no-daemon --refresh-dependencies downloadMCMeta extractSrg createMcpToSrg || true
+        env:
+          GRADLE_OPTS: "-Xmx3g"
+
+      - name: Build JAR
+        run: ./gradlew --no-daemon jar
         env:
           GRADLE_OPTS: "-Xmx3g"
 
