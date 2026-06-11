@@ -29,21 +29,6 @@ jobs:
       - name: Grant execute permission to gradlew
         run: chmod +x gradlew
 
-      - name: Pre-download Mojang mappings for ForgeGradle
-        run: |
-          # ForgeGradle кладёт маппинги сюда
-          MCP_DIR="$HOME/.gradle/caches/forge_gradle/mcp_repo/de/oceanlabs/mcp/mcp_config/1.16.5"
-          mkdir -p "$MCP_DIR"
-          # Скачиваем mcp_config zip с Forge maven
-          curl -L "https://maven.minecraftforge.net/de/oceanlabs/mcp/mcp_config/1.16.5/mcp_config-1.16.5.zip" \
-            -o "$MCP_DIR/mcp_config-1.16.5.zip"
-          # Распаковываем tsrg файл
-          cd "$MCP_DIR"
-          unzip -o mcp_config-1.16.5.zip "config/joined.tsrg" 2>/dev/null || true
-          # ForgeGradle ищет именно этот файл
-          cp config/joined.tsrg mcp_config-1.16.5-obf_to_srg.tsrg 2>/dev/null || true
-          ls -la "$MCP_DIR"
-
       - name: Setup Gradle cache
         uses: actions/cache@v4
         with:

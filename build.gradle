@@ -1,14 +1,17 @@
 buildscript {
     repositories {
         maven { url = 'https://maven.minecraftforge.net' }
+        maven { url = 'https://maven.parchmentmc.org' }
         mavenCentral()
     }
     dependencies {
         classpath group: 'net.minecraftforge.gradle', name: 'ForgeGradle', version: '4.1.+', changing: true
+        classpath 'org.parchmentmc:librarian:1.+'
     }
 }
 
 apply plugin: 'net.minecraftforge.gradle'
+apply plugin: 'org.parchmentmc.librarian.forgegradle'
 apply plugin: 'java'
 
 version = '1.0.0'
@@ -30,9 +33,7 @@ sourceSets {
 }
 
 minecraft {
-    mappings channel: 'official', version: '1.16.5'
-
-    accessTransformer = file('src/main/resources/META-INF/accesstransformer.cfg')
+    mappings channel: 'parchment', version: '2021.10.17-1.16.5'
 
     runs {
         client {
@@ -45,6 +46,7 @@ minecraft {
 }
 
 repositories {
+    maven { url = 'https://maven.parchmentmc.org' }
     mavenCentral()
 }
 
@@ -52,27 +54,12 @@ dependencies {
     minecraft 'net.minecraftforge:forge:1.16.5-36.2.34'
 }
 
-// Полностью пропускаем reobf — jar будет с human-readable именами
-// Это нормально для личного клиента, Forge загрузит его правильно
 jar {
-    classifier = 'dev'
     manifest {
         attributes([
             'Specification-Title'    : 'yourcheat',
             'Implementation-Title'   : project.name,
             'Implementation-Version' : project.version,
         ])
-    }
-}
-
-// Убираем reobfJar из зависимостей assemble
-configurations.all {
-    resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
-}
-
-afterEvaluate {
-    tasks.named('reobfJar') { enabled = false }
-    tasks.named('assemble').configure {
-        dependsOn -= tasks.named('reobfJar')
     }
 }
