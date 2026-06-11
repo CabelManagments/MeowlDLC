@@ -1,17 +1,14 @@
 buildscript {
     repositories {
         maven { url = 'https://maven.minecraftforge.net' }
-        maven { url = 'https://maven.parchmentmc.org' }
         mavenCentral()
     }
     dependencies {
         classpath group: 'net.minecraftforge.gradle', name: 'ForgeGradle', version: '4.1.+', changing: true
-        classpath 'org.parchmentmc:librarian:1.+'
     }
 }
 
 apply plugin: 'net.minecraftforge.gradle'
-apply plugin: 'org.parchmentmc.librarian.forgegradle'
 apply plugin: 'java'
 
 version = '1.0.0'
@@ -27,13 +24,12 @@ sourceSets {
             exclude 'build/**'
             exclude '.github/**'
             exclude 'gradle/**'
-            exclude 'libs/**'
         }
     }
 }
 
 minecraft {
-    mappings channel: 'parchment', version: '2021.10.17-1.16.5'
+    mappings channel: 'snapshot', version: '20201028-1.16.3'
 
     runs {
         client {
@@ -46,7 +42,6 @@ minecraft {
 }
 
 repositories {
-    maven { url = 'https://maven.parchmentmc.org' }
     mavenCentral()
 }
 
