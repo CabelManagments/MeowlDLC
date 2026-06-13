@@ -110,7 +110,7 @@ public class ClickGUI extends Screen {
             List<ModuleRow> filtered = q.isEmpty() ? rows :
                     rows.stream().filter(r -> r.getModule().getName().toLowerCase().contains(q)).collect(Collectors.toList());
 
-            float totalH = filtered.stream().mapToFloat(r -> r.getHeight()+2).sum();
+            float totalH = (float)filtered.stream().mapToDouble(r -> r.getHeight()+2).sum();
             float scrollOffset = currentScroll.getOrDefault(c, 0f);
 
             ctx.enableScissor((int)saX1, (int)(contentStart-4), (int)saX2, (int)saY2);
@@ -253,7 +253,7 @@ public class ClickGUI extends Screen {
             float cx1=startX+i*(colW+gutter)+60f;
             if (mx>=cx1&&mx<=cx1+colW) {
                 float tgt = targetScroll.getOrDefault(c,0f)+(float)(vd*SCROLL_SPEED);
-                float totalH = columns.getOrDefault(c,Collections.emptyList()).stream().mapToFloat(r->r.getHeight()+2).sum();
+                float totalH = (float)columns.getOrDefault(c,Collections.emptyList()).stream().mapToDouble(r->r.getHeight()+2).sum();
                 float visH = ly2-(py-10f+22f+20f);
                 tgt = Math.max(-(Math.max(0,totalH-visH)),Math.min(0,tgt));
                 targetScroll.put(c,tgt); return true;
@@ -288,7 +288,7 @@ public class ClickGUI extends Screen {
         ctx.fill(0,0,width,height,new Color(0,0,0,(int)(alphaAnim.get()*150)).getRGB());
     }
 
-    @Override public void onClose() { startFadeOut(); }
+    @Override public void close() { startFadeOut(); }
     public void startFadeOut() { alphaAnim.run(0.0,0.2,AnimationUtil.Easing.CUBIC_IN); }
     @Override public boolean shouldPause() { return false; }
 
