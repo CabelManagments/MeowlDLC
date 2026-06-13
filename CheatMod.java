@@ -1,5 +1,6 @@
 package com.yourcheat;
 
+import com.yourcheat.gui.HUD;
 import com.yourcheat.modules.HitParticlesModule;
 import com.yourcheat.modules.JumpCircleModule;
 import com.yourcheat.modules.TargetESPModule;
@@ -38,24 +39,22 @@ public class CheatMod implements ClientModInitializer {
             }
         });
 
-        // Рендер модулей
+        // Рендер модулей в мире
         WorldRenderEvents.AFTER_ENTITIES.register(ctx -> {
             jumpCircle.onRender(ctx);
             targetESP.onRender(ctx);
             hitParticles.onRender(ctx);
         });
 
-        // Перехват атаки через Fabric API — без миксина
+        // HUD
+        HUD.getInstance().register();
+
+        // Перехват атаки для HitParticles
         AttackEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
             if (world.isClient) {
-                hitParticles.spawnAt(
-                    entity.getX(),
-                    entity.getY() + entity.getHeight() * 0.7,
-                    entity.getZ()
-                );
+                hitParticles.spawnAt(entity.getX(), entity.getY() + entity.getHeight() * 0.7, entity.getZ());
             }
-            return ActionResult.PASS; // не отменяем атаку
+            return ActionResult.PASS;
         });
     }
 }
-

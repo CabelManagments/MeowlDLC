@@ -9,5 +9,6 @@ public interface IModule {
     default void toggle() { setEnabled(!isEnabled()); }
     String getName();
     List<ClickGUI.Setting> getSettings();
+    default void setBind(int key) {} // кейбинд (опционально)
 }
 
