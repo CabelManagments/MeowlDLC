@@ -2,7 +2,7 @@
   "required": true,
   "package": "com.yourcheat.mixin",
   "compatibilityLevel": "JAVA_21",
-  "client": ["TitleScreenMixin"],
+  "client": [],
   "injectors": { "defaultRequire": 1 }
 }
 
