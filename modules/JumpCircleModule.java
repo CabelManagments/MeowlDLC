@@ -105,13 +105,13 @@ public class JumpCircleModule implements IModule {
                     .rotationDegrees(90f));
 
             Matrix4f mat = ms.peek().getPositionMatrix();
-            var nm       = ms.peek().getNormalMatrix();
+            var entry = ms.peek();
             float h = scale / 2f;
 
-            vc.vertex(mat, -h, -h, 0).color(r,g,b,a).texture(0f,0f).overlay(OverlayTexture.DEFAULT_UV).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(nm, 0,1,0);
-            vc.vertex(mat, -h,  h, 0).color(r,g,b,a).texture(0f,1f).overlay(OverlayTexture.DEFAULT_UV).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(nm, 0,1,0);
-            vc.vertex(mat,  h,  h, 0).color(r,g,b,a).texture(1f,1f).overlay(OverlayTexture.DEFAULT_UV).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(nm, 0,1,0);
-            vc.vertex(mat,  h, -h, 0).color(r,g,b,a).texture(1f,0f).overlay(OverlayTexture.DEFAULT_UV).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(nm, 0,1,0);
+            vc.vertex(mat, -h, -h, 0).color(r,g,b,a).texture(0f,0f).overlay(OverlayTexture.DEFAULT_UV).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(entry, 0,1,0);
+            vc.vertex(mat, -h,  h, 0).color(r,g,b,a).texture(0f,1f).overlay(OverlayTexture.DEFAULT_UV).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(entry, 0,1,0);
+            vc.vertex(mat,  h,  h, 0).color(r,g,b,a).texture(1f,1f).overlay(OverlayTexture.DEFAULT_UV).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(entry, 0,1,0);
+            vc.vertex(mat,  h, -h, 0).color(r,g,b,a).texture(1f,0f).overlay(OverlayTexture.DEFAULT_UV).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(entry, 0,1,0);
 
             ms.pop();
         }
