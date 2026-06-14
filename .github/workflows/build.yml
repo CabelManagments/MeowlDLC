@@ -20,8 +20,8 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
 
-      - name: Install ffmpeg
-        run: sudo apt-get install -y ffmpeg
+      - name: Install ffmpeg and imagemagick
+        run: sudo apt-get install -y ffmpeg imagemagick
 
       - name: Convert MP3 sounds to OGG
         run: |
@@ -29,6 +29,15 @@ jobs:
             [ -f "$f" ] || continue
             out="${f%.mp3}.ogg"
             ffmpeg -y -i "$f" -c:a libvorbis -q:a 4 "$out" && rm "$f"
+            echo "Converted $f -> $out"
+          done
+
+      - name: Convert JPG textures to PNG
+        run: |
+          for f in resources/assets/yourcheat/textures/*.jpg; do
+            [ -f "$f" ] || continue
+            out="${f%.jpg}.png"
+            convert "$f" "$out" && rm "$f"
             echo "Converted $f -> $out"
           done
 
