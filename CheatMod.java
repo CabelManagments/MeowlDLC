@@ -1,6 +1,5 @@
 package com.yourcheat;
 
-import com.yourcheat.gui.FontRenderer;
 import com.yourcheat.gui.HUD;
 import com.yourcheat.modules.HitParticlesModule;
 import com.yourcheat.modules.JumpCircleModule;
