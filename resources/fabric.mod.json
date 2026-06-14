@@ -2,13 +2,14 @@
   "schemaVersion": 1,
   "id": "yourcheat",
   "version": "1.0.0",
-  "name": "YourCheat",
+  "name": "MeowlDLC",
   "description": "cheat client",
   "authors": ["you"],
   "environment": "client",
   "entrypoints": {
     "client": ["com.yourcheat.CheatMod"]
   },
+  "mixins": ["yourcheat.mixins.json"],
   "depends": {
     "fabricloader": ">=0.16.9",
     "minecraft": "~1.21.4",

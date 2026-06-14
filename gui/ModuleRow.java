@@ -102,7 +102,12 @@ public class ModuleRow {
         if (binding) return true;
         boolean hovered = mx >= x && mx <= x+width && my >= y && my <= y+baseH;
         if (hovered) {
-            if (btn == 0) { module.toggle(); return true; }
+            if (btn == 0) {
+                module.toggle();
+                if (module.isEnabled()) com.yourcheat.util.SoundManager.playEnable();
+                else com.yourcheat.util.SoundManager.playDisable();
+                return true;
+            }
             if (btn == 1) { if (!module.getSettings().isEmpty()) expanded = !expanded; return true; }
             if (btn == 2) { binding = true; return true; }
         }
@@ -140,4 +145,3 @@ public class ModuleRow {
     public void setWidth(float w) { this.width = w; }
     public IModule getModule() { return module; }
 }
-

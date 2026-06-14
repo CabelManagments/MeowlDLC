@@ -20,6 +20,18 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
 
+      - name: Install ffmpeg
+        run: sudo apt-get install -y ffmpeg
+
+      - name: Convert MP3 sounds to OGG
+        run: |
+          for f in resources/assets/yourcheat/sounds/*.mp3; do
+            [ -f "$f" ] || continue
+            out="${f%.mp3}.ogg"
+            ffmpeg -y -i "$f" -c:a libvorbis -q:a 4 "$out" && rm "$f"
+            echo "Converted $f -> $out"
+          done
+
       - name: Download gradle-wrapper.jar
         run: |
           mkdir -p gradle/wrapper
@@ -47,7 +59,6 @@ jobs:
       - name: Upload JAR
         uses: actions/upload-artifact@v4
         with:
-          name: yourcheat-jar
+          name: meowldlc-jar
           path: build/libs/*.jar
-          exclude: build/libs/*-sources.jar
           if-no-files-found: error

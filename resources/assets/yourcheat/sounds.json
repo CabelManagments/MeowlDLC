@@ -1,0 +1,15 @@
+{
+  "hit": {
+    "sounds": [{"name": "yourcheat:hit", "stream": false}]
+  },
+  "kill": {
+    "sounds": [{"name": "yourcheat:kill", "stream": false}]
+  },
+  "enable": {
+    "sounds": [{"name": "yourcheat:enable", "stream": false}]
+  },
+  "disable": {
+    "sounds": [{"name": "yourcheat:disable", "stream": false}]
+  }
+}
+
