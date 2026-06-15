@@ -2,9 +2,7 @@ package com.yourcheat;
 
 import com.yourcheat.gui.FontRenderer;
 import com.yourcheat.gui.HUD;
-import com.yourcheat.modules.HitParticlesModule;
-import com.yourcheat.modules.JumpCircleModule;
-import com.yourcheat.modules.TargetESPModule;
+import com.yourcheat.modules.*;
 import com.yourcheat.util.SoundManager;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -26,9 +24,14 @@ public class CheatMod implements ClientModInitializer {
 
     public static KeyBinding guiKey;
 
+    // Визуальные модули
     public static final JumpCircleModule   jumpCircle   = new JumpCircleModule();
     public static final TargetESPModule    targetESP    = new TargetESPModule();
     public static final HitParticlesModule hitParticles = new HitParticlesModule();
+    public static final ChinaHatModule     chinaHat     = new ChinaHatModule();
+    public static final CapeModule         cape         = new CapeModule();
+    public static final TargetHUDModule    targetHUD    = new TargetHUDModule();
+    public static final WatermarkModule    watermark    = new WatermarkModule();
 
     @Override
     public void onInitializeClient() {
@@ -39,15 +42,18 @@ public class CheatMod implements ClientModInitializer {
             "category.yourcheat"
         ));
 
-        // Инициализируем FontRenderer после загрузки ресурсов
+        // Загружаем шрифт после ресурсов
         ResourceManagerHelper.get(ResourceType.CLIENT_RESOURCES)
             .registerReloadListener(new SimpleSynchronousResourceReloadListener() {
-                @Override
-                public Identifier getFabricId() { return Identifier.of("yourcheat", "font_loader"); }
-                @Override
-                public void reload(ResourceManager manager) { FontRenderer.INSTANCE.init(); }
+                @Override public Identifier getFabricId() {
+                    return Identifier.of("yourcheat", "font_loader");
+                }
+                @Override public void reload(ResourceManager manager) {
+                    FontRenderer.INSTANCE.init();
+                }
             });
 
+        // Тик
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (guiKey.wasPressed() && client.currentScreen == null) {
                 client.setScreen(new com.yourcheat.gui.ClickGUI());
@@ -55,14 +61,21 @@ public class CheatMod implements ClientModInitializer {
             jumpCircle.tick();
         });
 
+        // 3D рендер
         WorldRenderEvents.AFTER_ENTITIES.register(ctx -> {
             jumpCircle.onRender(ctx);
             targetESP.onRender(ctx);
             hitParticles.onRender(ctx);
+            chinaHat.onRender(ctx);
+            cape.onRender(ctx);
         });
 
+        // HUD
         HUD.getInstance().register();
+        targetHUD.register();
+        watermark.register();
 
+        // Звуки при атаке
         AttackEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
             if (world.isClient && entity instanceof LivingEntity living) {
                 hitParticles.spawnAt(

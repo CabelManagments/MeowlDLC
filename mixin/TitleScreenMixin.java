@@ -1,6 +1,5 @@
 package com.yourcheat.mixin;
 
-import com.yourcheat.gui.FontRenderer;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.TitleScreen;
@@ -17,65 +16,71 @@ public class TitleScreenMixin {
 
     private static final Identifier BG = Identifier.of("yourcheat", "textures/menu_bg.png");
 
-    /**
-     * Инджектим в render() — рисуем наш фон поверх дефолтного,
-     * до того как кнопки отрисуются. Кнопки остаются на месте.
-     */
+    // Рисуем фон ПЕРЕД всем остальным
     @Inject(method = "render", at = @At("HEAD"))
-    private void renderCustomBg(DrawContext ctx, int mx, int my, float delta, CallbackInfo ci) {
+    private void injectBg(DrawContext ctx, int mx, int my, float delta, CallbackInfo ci) {
         MinecraftClient mc = MinecraftClient.getInstance();
         int w = mc.getWindow().getScaledWidth();
         int h = mc.getWindow().getScaledHeight();
-
-        // Рисуем наш чёрный фон
         try {
             ctx.drawTexture(
                 net.minecraft.client.render.RenderLayer::getGuiTextured,
                 BG, 0, 0, 0, 0, w, h, w, h
             );
         } catch (Exception ignored) {
-            // Если текстура не загрузилась — чёрный фон
-            ctx.fill(0, 0, w, h, 0xFF000000);
+            ctx.fill(0, 0, w, h, 0xFF050508);
         }
-
-        // Тёмный оверлей для контраста
-        ctx.fill(0, 0, w, h, new Color(0, 0, 0, 140).getRGB());
+        ctx.fill(0, 0, w, h, new Color(0,0,0,160).getRGB());
     }
 
-    /**
-     * После отрисовки кнопок рисуем наш заголовок поверх ванильного "Minecraft".
-     */
-    @Inject(method = "render", at = @At("TAIL"))
-    private void renderCustomTitle(DrawContext ctx, int mx, int my, float delta, CallbackInfo ci) {
+    // Прячем ванильный логотип "Minecraft" — перехватываем drawBackground
+    @Inject(
+        method = "renderBackground",
+        at = @At("TAIL"),
+        cancellable = false
+    )
+    private void cancelVanillaBg(DrawContext ctx, int mx, int my, float delta, CallbackInfo ci) {
+        // После drawBackground снова рисуем наш фон — он перекроет панораму
         MinecraftClient mc = MinecraftClient.getInstance();
         int w = mc.getWindow().getScaledWidth();
-
-        // Заголовок MeowlDLC с Nexa шрифтом через FontRenderer
-        String title = "MeowlDLC";
-        long t = System.currentTimeMillis();
-        float hue = 0.88f + (float)(Math.sin(t / 2000.0) * 0.04f);
-        int color = Color.getHSBColor(hue, 0.7f, 0.95f).getRGB();
-
-        FontRenderer font = FontRenderer.INSTANCE;
-        if (font.isReady()) {
-            int titleW = font.getWidth(title, 3f);
-            font.drawString(ctx, title, (w - titleW) / 2f, 30, 3f, color);
-        } else {
-            // Fallback — ванильный шрифт x3
-            var vfont = mc.textRenderer;
-            int tw = vfont.getWidth(title) * 3;
-            ctx.getMatrices().push();
-            ctx.getMatrices().scale(3, 3, 1);
-            ctx.drawText(vfont, title, (w - tw) / 6, 12, color, true);
-            ctx.getMatrices().pop();
+        int h = mc.getWindow().getScaledHeight();
+        try {
+            ctx.drawTexture(
+                net.minecraft.client.render.RenderLayer::getGuiTextured,
+                BG, 0, 0, 0, 0, w, h, w, h
+            );
+        } catch (Exception ignored) {
+            ctx.fill(0, 0, w, h, 0xFF050508);
         }
+        ctx.fill(0, 0, w, h, new Color(0,0,0,160).getRGB());
+    }
 
-        // Версия
+    // Рисуем наш заголовок ПОСЛЕ кнопок
+    @Inject(method = "render", at = @At("TAIL"))
+    private void injectTitle(DrawContext ctx, int mx, int my, float delta, CallbackInfo ci) {
+        MinecraftClient mc = MinecraftClient.getInstance();
+        int w = mc.getWindow().getScaledWidth();
+        var font = mc.textRenderer;
+        String title = "MeowlDLC";
+
+        float hue = 0.88f + (float)(Math.sin(System.currentTimeMillis() / 2000.0) * 0.04f);
+        int color = Color.getHSBColor(hue, 0.75f, 0.95f).getRGB();
+
+        // x3 размер
+        int tw = font.getWidth(title) * 3;
+        ctx.getMatrices().push();
+        ctx.getMatrices().scale(3, 3, 1);
+        // Тень
+        ctx.drawText(font, title, (w - tw) / 6 + 1, 12, new Color(0,0,0,200).getRGB(), false);
+        // Основной текст
+        ctx.drawText(font, title, (w - tw) / 6, 11, color, false);
+        ctx.getMatrices().pop();
+
+        // "v1.0" снизу
         String ver = "v1.0 BETA";
-        ctx.drawText(mc.textRenderer, ver,
-                w - mc.textRenderer.getWidth(ver) - 4,
+        ctx.drawText(font, ver,
+                w - font.getWidth(ver) - 4,
                 mc.getWindow().getScaledHeight() - 12,
-                new Color(140, 140, 140, 200).getRGB(), false);
+                new Color(120,120,130,200).getRGB(), false);
     }
 }
-

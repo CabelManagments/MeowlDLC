@@ -1,6 +1,5 @@
 package com.yourcheat.modules;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.yourcheat.gui.ClickGUI;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.client.MinecraftClient;
@@ -17,11 +16,10 @@ import java.util.List;
 public class JumpCircleModule implements IModule {
 
     private boolean enabled = false;
-
-    public float maxScale = 2.0f;
-    public float lifetime = 3000f;
-    public Color color    = new Color(160, 80, 255, 255);
-    public boolean rainbow = true;
+    public float maxScale  = 2.0f;
+    public float lifetime  = 3000f;
+    public Color color     = new Color(255, 255, 255, 220); // белый по умолчанию
+    public boolean rainbow = false; // выключен
 
     private boolean wasOnGround = true;
     private final List<Circle> circles = new ArrayList<>();
@@ -50,10 +48,13 @@ public class JumpCircleModule implements IModule {
 
         boolean onGround = mc.player.isOnGround();
         if (wasOnGround && !onGround) {
+            // Позиция: ровно под ногами (Y = пол игрока + 0.01)
             circles.add(new Circle(
-                new Vec3d(mc.player.getX(),
-                          Math.floor(mc.player.getY()) + 0.001,
-                          mc.player.getZ()),
+                new Vec3d(
+                    mc.player.getX(),
+                    mc.player.getY() + 0.01,  // чуть выше пола
+                    mc.player.getZ()
+                ),
                 System.currentTimeMillis()
             ));
         }
@@ -64,12 +65,10 @@ public class JumpCircleModule implements IModule {
     public void onRender(WorldRenderContext ctx) {
         if (!enabled || circles.isEmpty()) return;
         MinecraftClient mc = MinecraftClient.getInstance();
-        Camera camera = mc.getEntityRenderDispatcher().camera;
-        Vec3d camPos  = camera.getPos();
+        Vec3d camPos = ctx.camera().getPos();
 
         MatrixStack ms = ctx.matrixStack();
         VertexConsumerProvider.Immediate vcp = mc.getBufferBuilders().getEntityVertexConsumers();
-        // Используем RenderLayer с текстурой
         RenderLayer layer = RenderLayer.getEntityTranslucent(CIRCLE_TEXTURE);
         VertexConsumer vc = vcp.getBuffer(layer);
 
@@ -87,31 +86,39 @@ public class JumpCircleModule implements IModule {
             int r = (baseColor >> 16) & 0xFF;
             int g = (baseColor >> 8)  & 0xFF;
             int b = baseColor & 0xFF;
-            int a = (int)(alpha * 255);
+            int a = (int)(alpha * (color.getAlpha() / 255f) * 255);
 
             double dx = circle.pos.x - camPos.x;
             double dy = circle.pos.y - camPos.y;
             double dz = circle.pos.z - camPos.z;
 
             ms.push();
-            ms.multiply(net.minecraft.util.math.RotationAxis.POSITIVE_X
-                    .rotationDegrees(camera.getPitch()));
-            ms.multiply(net.minecraft.util.math.RotationAxis.POSITIVE_Y
-                    .rotationDegrees(camera.getYaw() + 180f));
             ms.translate(dx, dy, dz);
-            ms.multiply(net.minecraft.util.math.RotationAxis.POSITIVE_Y
-                    .rotationDegrees(-camera.getYaw()));
-            ms.multiply(net.minecraft.util.math.RotationAxis.POSITIVE_X
-                    .rotationDegrees(90f));
 
-            Matrix4f mat = ms.peek().getPositionMatrix();
+            // Горизонтальная плоскость — просто поворот X на 90 градусов
+            // Не используем камеру — круг всегда лежит горизонтально на полу
+            ms.multiply(net.minecraft.util.math.RotationAxis.POSITIVE_X.rotationDegrees(90f));
+
+            Matrix4f mat   = ms.peek().getPositionMatrix();
             var entry = ms.peek();
             float h = scale / 2f;
 
-            vc.vertex(mat, -h, -h, 0).color(r,g,b,a).texture(0f,0f).overlay(OverlayTexture.DEFAULT_UV).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(entry, 0,1,0);
-            vc.vertex(mat, -h,  h, 0).color(r,g,b,a).texture(0f,1f).overlay(OverlayTexture.DEFAULT_UV).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(entry, 0,1,0);
-            vc.vertex(mat,  h,  h, 0).color(r,g,b,a).texture(1f,1f).overlay(OverlayTexture.DEFAULT_UV).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(entry, 0,1,0);
-            vc.vertex(mat,  h, -h, 0).color(r,g,b,a).texture(1f,0f).overlay(OverlayTexture.DEFAULT_UV).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(entry, 0,1,0);
+            vc.vertex(mat, -h, -h, 0).color(r,g,b,a).texture(0f,0f)
+              .overlay(OverlayTexture.DEFAULT_UV)
+              .light(LightmapTextureManager.MAX_LIGHT_COORDINATE)
+              .normal(entry, 0, 1, 0);
+            vc.vertex(mat,  h, -h, 0).color(r,g,b,a).texture(1f,0f)
+              .overlay(OverlayTexture.DEFAULT_UV)
+              .light(LightmapTextureManager.MAX_LIGHT_COORDINATE)
+              .normal(entry, 0, 1, 0);
+            vc.vertex(mat,  h,  h, 0).color(r,g,b,a).texture(1f,1f)
+              .overlay(OverlayTexture.DEFAULT_UV)
+              .light(LightmapTextureManager.MAX_LIGHT_COORDINATE)
+              .normal(entry, 0, 1, 0);
+            vc.vertex(mat, -h,  h, 0).color(r,g,b,a).texture(0f,1f)
+              .overlay(OverlayTexture.DEFAULT_UV)
+              .light(LightmapTextureManager.MAX_LIGHT_COORDINATE)
+              .normal(entry, 0, 1, 0);
 
             ms.pop();
         }
