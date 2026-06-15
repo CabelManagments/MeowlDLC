@@ -78,21 +78,12 @@ public class FontRenderer {
             g.drawString(text, 2, fm.getAscent() + 1);
             g.dispose();
 
-            // NativeImage через массив пикселей
+            // Конвертируем BufferedImage → PNG байты → NativeImage.read(InputStream)
+            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+            javax.imageio.ImageIO.write(img, "PNG", baos);
             net.minecraft.client.texture.NativeImage ni =
-                    new net.minecraft.client.texture.NativeImage(w, h, false);
-            for (int px = 0; px < w; px++) {
-                for (int py = 0; py < h; py++) {
-                    int argb = img.getRGB(px, py);
-                    int na = (argb >> 24) & 0xFF;
-                    int nr = (argb >> 16) & 0xFF;
-                    int ng = (argb >> 8) & 0xFF;
-                    int nb = argb & 0xFF;
-                    // NativeImage в 1.21.4: ABGR формат
-                    int abgr = (na << 24) | (nb << 16) | (ng << 8) | nr;
-                    ni.setColor(px, py, abgr);
-                }
-            }
+                net.minecraft.client.texture.NativeImage.read(
+                    new java.io.ByteArrayInputStream(baos.toByteArray()));
 
             String key = "dyn_" + Math.abs((text + scale + color).hashCode());
             Identifier texId = Identifier.of("yourcheat", key);
