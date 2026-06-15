@@ -90,18 +90,16 @@ public class FontRenderer {
                     int nb = argb & 0xFF;
                     // NativeImage в 1.21.4: ABGR формат
                     int abgr = (na << 24) | (nb << 16) | (ng << 8) | nr;
-                    ni.setPixelColor(px, py, abgr);
+                    ni.setColor(px, py, abgr);
                 }
             }
 
             String key = "dyn_" + Math.abs((text + scale + color).hashCode());
             Identifier texId = Identifier.of("yourcheat", key);
             var texManager = MinecraftClient.getInstance().getTextureManager();
-            var existing = texManager.getOrDefault(texId, null);
-            if (existing == null) {
-                var tex = new net.minecraft.client.texture.NativeImageBackedTexture(ni);
-                texManager.registerTexture(texId, tex);
-            }
+            // Всегда перерегистрируем (динамическая текстура)
+            var tex = new net.minecraft.client.texture.NativeImageBackedTexture(ni);
+            texManager.registerTexture(texId, tex);
 
             ctx.drawTexture(
                 net.minecraft.client.render.RenderLayer::getGuiTextured,
@@ -113,4 +111,3 @@ public class FontRenderer {
         }
     }
 }
-
