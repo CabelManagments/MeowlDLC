@@ -1,15 +1,15 @@
 package com.yourcheat.modules;
 
+import com.mojang.blaze3d.systems.RenderSystem;
 import com.yourcheat.gui.ClickGUI;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.*;
 import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.Identifier;
 import net.minecraft.util.math.Vec3d;
 import org.joml.Matrix4f;
 
-import java.awt.Color;
+import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -18,14 +18,11 @@ public class JumpCircleModule implements IModule {
     private boolean enabled = false;
     public float maxScale  = 2.0f;
     public float lifetime  = 3000f;
-    public Color color     = new Color(255, 255, 255, 220); // белый по умолчанию
-    public boolean rainbow = false; // выключен
+    public Color color     = new Color(255, 255, 255, 220);
+    public boolean rainbow = false;
 
     private boolean wasOnGround = true;
     private final List<Circle> circles = new ArrayList<>();
-
-    private static final Identifier CIRCLE_TEXTURE =
-            Identifier.of("yourcheat", "textures/circle.png");
 
     @Override public String getName()           { return "JumpCircle"; }
     @Override public boolean isEnabled()        { return enabled; }
@@ -45,16 +42,10 @@ public class JumpCircleModule implements IModule {
         if (!enabled) return;
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.player == null) return;
-
         boolean onGround = mc.player.isOnGround();
         if (wasOnGround && !onGround) {
-            // Позиция: ровно под ногами (Y = пол игрока + 0.01)
             circles.add(new Circle(
-                new Vec3d(
-                    mc.player.getX(),
-                    mc.player.getY() + 0.01,  // чуть выше пола
-                    mc.player.getZ()
-                ),
+                new Vec3d(mc.player.getX(), mc.player.getY() + 0.02, mc.player.getZ()),
                 System.currentTimeMillis()
             ));
         }
@@ -64,13 +55,19 @@ public class JumpCircleModule implements IModule {
 
     public void onRender(WorldRenderContext ctx) {
         if (!enabled || circles.isEmpty()) return;
-        MinecraftClient mc = MinecraftClient.getInstance();
-        Vec3d camPos = ctx.camera().getPos();
 
+        Vec3d camPos = ctx.camera().getPos();
         MatrixStack ms = ctx.matrixStack();
-        VertexConsumerProvider.Immediate vcp = mc.getBufferBuilders().getEntityVertexConsumers();
-        RenderLayer layer = RenderLayer.getEntityTranslucentCull(CIRCLE_TEXTURE);
-        VertexConsumer vc = vcp.getBuffer(layer);
+
+        RenderSystem.enableBlend();
+        RenderSystem.blendFuncSeparate(
+            com.mojang.blaze3d.platform.GlStateManager.SrcFactor.SRC_ALPHA,
+            com.mojang.blaze3d.platform.GlStateManager.DstFactor.ONE_MINUS_SRC_ALPHA,
+            com.mojang.blaze3d.platform.GlStateManager.SrcFactor.ONE,
+            com.mojang.blaze3d.platform.GlStateManager.DstFactor.ZERO);
+        RenderSystem.disableDepthTest();
+        RenderSystem.disableCull();
+        RenderSystem.setShader(net.minecraft.client.gl.ShaderProgramKeys.POSITION_COLOR);
 
         for (Circle circle : circles) {
             float progress = (System.currentTimeMillis() - circle.spawnTime) / lifetime;
@@ -95,35 +92,46 @@ public class JumpCircleModule implements IModule {
             ms.push();
             ms.translate(dx, dy, dz);
 
-            // Горизонтальная плоскость — просто поворот X на 90 градусов
-            // Не используем камеру — круг всегда лежит горизонтально на полу
-            ms.multiply(net.minecraft.util.math.RotationAxis.POSITIVE_X.rotationDegrees(90f));
+            Matrix4f mat = ms.peek().getPositionMatrix();
 
-            Matrix4f mat   = ms.peek().getPositionMatrix();
-            var entry = ms.peek();
-            float h = scale / 2f;
+            // Рисуем горизонтальный круг через GL_LINE_LOOP (64 сегмента)
+            int segments = 64;
+            Tessellator tess = Tessellator.getInstance();
+            BufferBuilder buf = tess.begin(VertexFormat.DrawMode.DEBUG_LINE_STRIP,
+                    VertexFormats.POSITION_COLOR);
 
-            vc.vertex(mat, -h, -h, 0).color(r,g,b,a).texture(0f,0f)
-              .overlay(OverlayTexture.DEFAULT_UV)
-              .light(LightmapTextureManager.MAX_LIGHT_COORDINATE)
-              .normal(entry, 0, 1, 0);
-            vc.vertex(mat,  h, -h, 0).color(r,g,b,a).texture(1f,0f)
-              .overlay(OverlayTexture.DEFAULT_UV)
-              .light(LightmapTextureManager.MAX_LIGHT_COORDINATE)
-              .normal(entry, 0, 1, 0);
-            vc.vertex(mat,  h,  h, 0).color(r,g,b,a).texture(1f,1f)
-              .overlay(OverlayTexture.DEFAULT_UV)
-              .light(LightmapTextureManager.MAX_LIGHT_COORDINATE)
-              .normal(entry, 0, 1, 0);
-            vc.vertex(mat, -h,  h, 0).color(r,g,b,a).texture(0f,1f)
-              .overlay(OverlayTexture.DEFAULT_UV)
-              .light(LightmapTextureManager.MAX_LIGHT_COORDINATE)
-              .normal(entry, 0, 1, 0);
+            for (int i = 0; i <= segments; i++) {
+                double angle = 2.0 * Math.PI * i / segments;
+                float x = scale / 2f * (float) Math.cos(angle);
+                float z = scale / 2f * (float) Math.sin(angle);
+                buf.vertex(mat, x, 0f, z).color(r, g, b, a);
+            }
+
+            RenderSystem.lineWidth(2.5f);
+            BufferRenderer.drawWithGlobalProgram(buf.end());
+
+            // Внутреннее кольцо (свечение)
+            BufferBuilder glow = tess.begin(VertexFormat.DrawMode.DEBUG_LINE_STRIP,
+                    VertexFormats.POSITION_COLOR);
+            float innerScale = scale / 2f * 0.88f;
+            int glowA = (int)(a * 0.4f);
+            for (int i = 0; i <= segments; i++) {
+                double angle = 2.0 * Math.PI * i / segments;
+                float x = innerScale * (float) Math.cos(angle);
+                float z = innerScale * (float) Math.sin(angle);
+                glow.vertex(mat, x, 0f, z).color(r, g, b, glowA);
+            }
+            RenderSystem.lineWidth(1.2f);
+            BufferRenderer.drawWithGlobalProgram(glow.end());
 
             ms.pop();
         }
 
-        vcp.draw(layer);
+        RenderSystem.enableDepthTest();
+        RenderSystem.enableCull();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.disableBlend();
+        RenderSystem.lineWidth(1f);
     }
 
     private record Circle(Vec3d pos, long spawnTime) {}
