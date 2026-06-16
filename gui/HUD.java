@@ -6,6 +6,7 @@ import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.render.RenderTickCounter;
+import net.minecraft.entity.player.PlayerEntity;
 
 import java.awt.*;
 import java.time.LocalTime;
@@ -16,114 +17,90 @@ public class HUD {
     private static final HUD INSTANCE = new HUD();
     public static HUD getInstance() { return INSTANCE; }
 
-    private final AnimatedValue fpsAnim   = new AnimatedValue(0, 0.05f);
-    private final AnimatedValue xAnim     = new AnimatedValue(0, 0.08f);
-    private final AnimatedValue yAnim     = new AnimatedValue(0, 0.08f);
-    private final AnimatedValue zAnim     = new AnimatedValue(0, 0.08f);
-    private final AnimatedValue speedAnim = new AnimatedValue(0, 0.05f);
-    private final AnimatedValue pingAnim  = new AnimatedValue(0, 0.03f);
-
+    // Плавные значения
+    private float fps, x, y, z, speed, ping;
     private double lastX, lastZ;
     private long lastTime = System.currentTimeMillis();
 
-    public void register() {
-        HudRenderCallback.EVENT.register(this::render);
-    }
+    public void register() { HudRenderCallback.EVENT.register(this::render); }
 
     private void render(DrawContext ctx, RenderTickCounter counter) {
         MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc.player == null || mc.world == null) return;
-        if (mc.options.hudHidden) return;
+        if (mc.player == null || mc.world == null || mc.options.hudHidden) return;
 
-        int scW = ctx.getScaledWindowWidth();
-        int scH = ctx.getScaledWindowHeight();
+        int sw = ctx.getScaledWindowWidth();
+        int sh = ctx.getScaledWindowHeight();
         var font = mc.textRenderer;
+        int accent = ClickGUI.ACCENT_COLOR;
 
-        // Скорость
+        // Обновляем значения
         long now = System.currentTimeMillis();
         double dt = (now - lastTime) / 1000.0;
         if (dt > 0) {
             double dx = mc.player.getX() - lastX;
             double dz = mc.player.getZ() - lastZ;
-            speedAnim.setTarget((float)(Math.sqrt(dx*dx+dz*dz)/dt));
+            float rawSpeed = (float)(Math.sqrt(dx*dx+dz*dz)/dt);
+            speed += (rawSpeed - speed) * 0.15f;
         }
         lastX = mc.player.getX(); lastZ = mc.player.getZ(); lastTime = now;
+        fps   += (mc.getCurrentFps() - fps) * 0.1f;
+        x     += (float)(mc.player.getX() - x) * 0.2f;
+        y     += (float)(mc.player.getY() - y) * 0.2f;
+        z     += (float)(mc.player.getZ() - z) * 0.2f;
+        var nh = mc.getNetworkHandler();
+        if (nh != null) {
+            var e = nh.getPlayerListEntry(mc.player.getUuid());
+            if (e != null) ping += (e.getLatency() - ping) * 0.05f;
+        }
 
-        fpsAnim.setTarget(mc.getCurrentFps());
-        xAnim.setTarget((float)mc.player.getX());
-        yAnim.setTarget((float)mc.player.getY());
-        zAnim.setTarget((float)mc.player.getZ());
+        // ── Нижний левый: XYZ + Speed ─────────────────────────────
+        int blockW = 160, blockH = 32, pad = 5;
+        int bx = pad, by = sh - blockH - pad;
 
-        var entry = mc.getNetworkHandler() != null ?
-                mc.getNetworkHandler().getPlayerListEntry(mc.player.getUuid()) : null;
-        pingAnim.setTarget(entry != null ? entry.getLatency() : 0);
+        RenderUtil.drawRoundedRect(ctx, bx, by, blockW, blockH, 4f,
+                new Color(12, 10, 15, 200).getRGB());
+        // Акцент-линия слева
+        RenderUtil.drawRoundedRect(ctx, bx, by, 2, blockH, 1f,
+                RenderUtil.withAlpha(accent, 220));
 
-        int accent  = ClickGUI.ACCENT_COLOR;
-        int panelBg = new Color(14, 12, 16, 160).getRGB();
-        int textW   = 0xFFEEEEEE;
-        int textG   = 0xFFAAAAAA;
+        // XYZ
+        ctx.drawText(font, "xyz", bx+6, by+5, RenderUtil.withAlpha(accent, 220), false);
+        String xyzVal = String.format("  %.1f  %.1f  %.1f", (double)x, (double)y, (double)z);
+        ctx.drawText(font, xyzVal, bx+6, by+5, 0xFFDDDDDD, false);
 
-        // Верхний левый: имя + fps + время
-        String clientName = "MeowlDLC";
-        int nameW = font.getWidth(clientName);
-        RenderUtil.drawRoundedRect(ctx, 5, 3, nameW+14, 15, 4f, panelBg);
-        RenderUtil.drawRoundedRect(ctx, 5, 3, 3, 15, 2f, RenderUtil.withAlpha(accent, 200));
-        ctx.drawText(font, clientName, 12, 6, accent, false);
+        // Speed
+        String spTxt = String.format("%.2f b/s", speed);
+        ctx.drawText(font, spTxt, bx+6, by+18, new Color(160,160,170,220).getRGB(), false);
 
-        String fpsText = fpsAnim.getInt() + " fps";
-        int fpsW = font.getWidth(fpsText);
-        RenderUtil.drawRoundedRect(ctx, nameW+22, 3, fpsW+12, 15, 4f, panelBg);
-        ctx.drawText(font, fpsText, nameW+27, 6, textW, false);
+        // ── Нижний правый: Ping ────────────────────────────────────
+        int p = (int)ping;
+        int pingColor = p < 80 ? 0xFF55FF55 : p < 150 ? 0xFFFFAA00 : 0xFFFF5555;
+        String pingStr = "ping  " + p;
+        int pw = font.getWidth(pingStr);
+        RenderUtil.drawRoundedRect(ctx, sw-pw-16, sh-18, pw+12, 14, 4f,
+                new Color(12,10,15,200).getRGB());
+        ctx.drawText(font, "ping  ", sw-pw-10, sh-15, new Color(130,130,140,220).getRGB(), false);
+        ctx.drawText(font, String.valueOf(p), sw-pw-10+font.getWidth("ping  "), sh-15, pingColor, false);
 
-        String timeText = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"));
-        int timeW = font.getWidth(timeText);
-        RenderUtil.drawRoundedRect(ctx, nameW+fpsW+37, 3, timeW+12, 15, 4f, panelBg);
-        ctx.drawText(font, timeText, nameW+fpsW+42, 6, textG, false);
+        // ── ArrayList: включённые модули ───────────────────────────
+        IModule[] mods = {
+            CheatMod.jumpCircle, CheatMod.targetESP, CheatMod.hitParticles,
+            CheatMod.chinaHat, CheatMod.cape, CheatMod.wings, CheatMod.nimb,
+            CheatMod.killAura, CheatMod.targetHUD, CheatMod.watermark, CheatMod.timeChanger
+        };
 
-        // Нижний левый: xyz + скорость
-        String xyzLabel = "xyz";
-        String xyzVals  = String.format("  %.1f  %.1f  %.1f", xAnim.get(), yAnim.get(), zAnim.get());
-        String speedTxt = String.format("%.1f b/s", speedAnim.get());
-        int xyzW  = font.getWidth(xyzLabel+xyzVals);
-        int spdW  = font.getWidth(speedTxt);
-        int botW  = Math.max(xyzW, spdW)+16;
-
-        RenderUtil.drawRoundedRect(ctx, 5, scH-33, botW, 30, 4f, panelBg);
-        RenderUtil.drawRoundedRect(ctx, 5, scH-33, 3, 30, 2f, RenderUtil.withAlpha(accent, 200));
-        ctx.drawText(font, xyzLabel, 12, scH-30, RenderUtil.withAlpha(accent,220), false);
-        ctx.drawText(font, xyzVals, 12+font.getWidth(xyzLabel), scH-30, textW, false);
-        ctx.drawText(font, speedTxt, 12, scH-20, textG, false);
-
-        // Нижний правый: пинг
-        String pingLabel = "ping  ";
-        String pingVal   = String.valueOf(pingAnim.getInt());
-        int pingW = font.getWidth(pingLabel+pingVal);
-        RenderUtil.drawRoundedRect(ctx, scW-pingW-16, scH-18, pingW+12, 15, 4f, panelBg);
-        int p = pingAnim.getInt();
-        int pingColor = p<80 ? 0xFF55FF55 : p<150 ? 0xFFFFAA00 : 0xFFFF5555;
-        ctx.drawText(font, pingLabel, scW-pingW-11, scH-15, textG, false);
-        ctx.drawText(font, pingVal, scW-pingW-11+font.getWidth(pingLabel), scH-15, pingColor, false);
-
-        // ArrayList включённых модулей (правый верх)
-        IModule[] modules = {CheatMod.jumpCircle, CheatMod.targetESP, CheatMod.hitParticles};
-        int ay = 3;
-        for (IModule m : modules) {
+        int ay = 4;
+        for (IModule m : mods) {
             if (!m.isEnabled()) continue;
             String name = m.getName();
             int mw = font.getWidth(name);
-            RenderUtil.drawRoundedRect(ctx, scW-mw-16, ay, mw+12, 13, 3f, panelBg);
-            RenderUtil.drawRoundedRect(ctx, scW-5, ay, 3, 13, 2f, RenderUtil.withAlpha(accent,200));
-            ctx.drawText(font, name, scW-mw-10, ay+2, textW, false);
+            RenderUtil.drawRoundedRect(ctx, sw-mw-14, ay, mw+10, 13, 3f,
+                    new Color(12,10,15,190).getRGB());
+            // Акцент справа
+            RenderUtil.drawRoundedRect(ctx, sw-4, ay, 3, 13, 1f,
+                    RenderUtil.withAlpha(accent, 200));
+            ctx.drawText(font, name, sw-mw-9, ay+2, 0xFFDDDDDD, false);
             ay += 15;
         }
-    }
-
-    private static class AnimatedValue {
-        private float value, target;
-        private final float speed;
-        AnimatedValue(float start, float speed) { value=start; target=start; this.speed=speed; }
-        void setTarget(float t) { target=t; }
-        float get() { value+=(target-value)*speed; return value; }
-        int getInt() { return Math.round(get()); }
     }
 }

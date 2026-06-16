@@ -24,14 +24,21 @@ public class CheatMod implements ClientModInitializer {
 
     public static KeyBinding guiKey;
 
-    // Визуальные модули
+    // Визуальные
     public static final JumpCircleModule   jumpCircle   = new JumpCircleModule();
     public static final TargetESPModule    targetESP    = new TargetESPModule();
     public static final HitParticlesModule hitParticles = new HitParticlesModule();
     public static final ChinaHatModule     chinaHat     = new ChinaHatModule();
     public static final CapeModule         cape         = new CapeModule();
+    public static final WingsModule        wings        = new WingsModule();
+    public static final NimbModule         nimb         = new NimbModule();
+    // HUD
     public static final TargetHUDModule    targetHUD    = new TargetHUDModule();
     public static final WatermarkModule    watermark    = new WatermarkModule();
+    // Combat
+    public static final KillAuraModule     killAura     = new KillAuraModule();
+    // Misc
+    public static final TimeChangerModule  timeChanger  = new TimeChangerModule();
 
     @Override
     public void onInitializeClient() {
@@ -42,7 +49,6 @@ public class CheatMod implements ClientModInitializer {
             "category.yourcheat"
         ));
 
-        // Загружаем шрифт после ресурсов
         ResourceManagerHelper.get(ResourceType.CLIENT_RESOURCES)
             .registerReloadListener(new SimpleSynchronousResourceReloadListener() {
                 @Override public Identifier getFabricId() {
@@ -53,29 +59,29 @@ public class CheatMod implements ClientModInitializer {
                 }
             });
 
-        // Тик
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (guiKey.wasPressed() && client.currentScreen == null) {
                 client.setScreen(new com.yourcheat.gui.ClickGUI());
             }
             jumpCircle.tick();
+            killAura.tick();
+            timeChanger.tick();
         });
 
-        // 3D рендер
         WorldRenderEvents.AFTER_ENTITIES.register(ctx -> {
             jumpCircle.onRender(ctx);
             targetESP.onRender(ctx);
             hitParticles.onRender(ctx);
             chinaHat.onRender(ctx);
             cape.onRender(ctx);
+            wings.onRender(ctx);
+            nimb.onRender(ctx);
         });
 
-        // HUD
         HUD.getInstance().register();
         targetHUD.register();
         watermark.register();
 
-        // Звуки при атаке
         AttackEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
             if (world.isClient && entity instanceof LivingEntity living) {
                 hitParticles.spawnAt(

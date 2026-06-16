@@ -69,7 +69,7 @@ public class JumpCircleModule implements IModule {
 
         MatrixStack ms = ctx.matrixStack();
         VertexConsumerProvider.Immediate vcp = mc.getBufferBuilders().getEntityVertexConsumers();
-        RenderLayer layer = RenderLayer.getEntityTranslucent(CIRCLE_TEXTURE);
+        RenderLayer layer = RenderLayer.getEntityTranslucentCull(CIRCLE_TEXTURE);
         VertexConsumer vc = vcp.getBuffer(layer);
 
         for (Circle circle : circles) {
