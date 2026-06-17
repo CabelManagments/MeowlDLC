@@ -15,31 +15,34 @@ import java.util.List;
 import java.util.Random;
 
 /**
- * KillAura с профилем ротации портированным с SPAngle (SpookyTime bypass).
- * Ключевая фича оригинала — "release hold/slowdown": при потере цели ротация
- * НЕ дёргается обратно мгновенно, а сначала замирает на 150мс, потом плавно
- * (ease) уходит к естественному направлению взгляда. Это убирает характерный
- * snap-паттерн который легко детектится.
+ * KillAura — порт ротационной логики SPAngle (release hold/slowdown) +
+ * человекоподобный тайминг атак (не бьёт максимально быстро, ждёт крит-окно).
+ *
+ * Крит в Minecraft происходит когда: fallDistance > 0 (игрок падает),
+ * !onGround, не на лестнице/в воде, нет slow-falling эффекта.
+ * Хороший КиллАура НЕ бьёт спамом — ждёт следующий "естественный" момент
+ * атаки, рассчитанный из целевого CPS с гауссовым джиттером, и предпочитает
+ * крит-окно если оно скоро наступит (прыжок перед хитом).
  */
 public class KillAuraModule implements IModule {
 
     private boolean enabled = false;
 
-    public float range        = 3.5f;
-    public float cps          = 9f;
-    public boolean players    = true;
-    public boolean mobs       = false;
+    public float range         = 3.5f;
+    public float cps           = 8f;     // целевой CPS (среднее)
+    public float cpsVariance   = 1.5f;   // стандартное отклонение
+    public boolean players     = true;
+    public boolean mobs        = false;
     public boolean onlyVisible = true;
+    public boolean critJump    = true;   // подскакивать перед хитом для крита
 
-    // ── Константы профиля (из SPAngle) ──────────────────────────────
     private static final long  RELEASE_HOLD_MS     = 150L;
-    private static final long  RELEASE_SLOWDOWN_MS = 350L; // у оригинала 2мс — слишком быстро, увеличил для реализма
+    private static final long  RELEASE_SLOWDOWN_MS = 350L;
     private static final float SHAKE_INTENSITY     = 1.15f;
     private static final float SHAKE_SPEED         = 3.0f;
     private static final float EPSILON             = 1.0f;
     private final Random rng = new Random();
 
-    // ── Runtime: ротация ─────────────────────────────────────────────
     private float currentYaw, currentPitch;
     private LivingEntity target = null;
 
@@ -51,23 +54,28 @@ public class KillAuraModule implements IModule {
     private float[] releaseToAngle   = null;
     private boolean hadTargetLastTick = false;
 
-    private long lastAttack = 0;
+    // ── Тайминг атак ──────────────────────────────────────────────
+    private long  nextAttackTime  = 0L; // момент следующего запланированного клика
+    private long  targetAcquiredAt = 0L; // когда цель появилась (для crit jump таймера)
+    private boolean jumpQueued    = false;
 
     @Override public String getName()           { return "KillAura"; }
     @Override public boolean isEnabled()        { return enabled; }
     @Override public void setEnabled(boolean v) {
         enabled = v;
-        if (!v) { target = null; resetRelease(); }
+        if (!v) { target = null; resetRelease(); nextAttackTime = 0L; }
     }
 
     @Override
     public List<ClickGUI.Setting> getSettings() {
         List<ClickGUI.Setting> list = new ArrayList<>();
-        list.add(new ClickGUI.SliderSetting("Range", range, 2.5f, 6.0f, v -> range = v));
-        list.add(new ClickGUI.SliderSetting("CPS",   cps,   4f,   20f,  v -> cps   = v));
-        list.add(new ClickGUI.BoolSetting("Players",     players,     v -> players     = v));
-        list.add(new ClickGUI.BoolSetting("Mobs",        mobs,        v -> mobs        = v));
-        list.add(new ClickGUI.BoolSetting("Only visible",onlyVisible, v -> onlyVisible = v));
+        list.add(new ClickGUI.SliderSetting("Range",        range,       2.5f, 6.0f, v -> range       = v));
+        list.add(new ClickGUI.SliderSetting("CPS",          cps,         3f,   14f,  v -> cps         = v));
+        list.add(new ClickGUI.SliderSetting("CPS Variance", cpsVariance, 0.2f, 3.0f, v -> cpsVariance = v));
+        list.add(new ClickGUI.BoolSetting("Players",      players,     v -> players     = v));
+        list.add(new ClickGUI.BoolSetting("Mobs",         mobs,        v -> mobs        = v));
+        list.add(new ClickGUI.BoolSetting("Only visible", onlyVisible, v -> onlyVisible = v));
+        list.add(new ClickGUI.BoolSetting("Crit jump",    critJump,    v -> critJump    = v));
         return list;
     }
 
@@ -79,8 +87,16 @@ public class KillAuraModule implements IModule {
         currentYaw   = mc.player.getYaw();
         currentPitch = mc.player.getPitch();
 
+        LivingEntity prevTarget = target;
         target = findTarget(mc);
         boolean hasTarget = target != null;
+
+        // Новая цель — планируем время первого хита и сбрасываем crit-jump таймер
+        if (hasTarget && target != prevTarget) {
+            targetAcquiredAt = System.currentTimeMillis();
+            scheduleNextAttack(true); // первый хит может быть чуть быстрее (реакция)
+            jumpQueued = critJump;
+        }
 
         float[] result;
         if (hasTarget) {
@@ -88,11 +104,9 @@ public class KillAuraModule implements IModule {
             float[] targetAngles = getAnglesTo(mc.player, aimPoint);
             result = limitAngleChange(targetAngles);
         } else {
-            // Естественное направление взгляда игрока (текущее, без цели)
-            result = handleRelease(new float[]{currentYaw, currentPitch}, hasTarget);
+            result = handleRelease(new float[]{currentYaw, currentPitch});
         }
 
-        // GCD snap
         float sensitivity = mc.options.getMouseSensitivity().getValue().floatValue();
         float newYaw   = gcdSnap(result[0], currentYaw, sensitivity);
         float newPitch = gcdSnap(MathHelper.clamp(result[1], -90f, 90f), currentPitch, sensitivity);
@@ -100,22 +114,51 @@ public class KillAuraModule implements IModule {
         mc.player.setYaw(newYaw);
         mc.player.setPitch(newPitch);
 
-        if (!hasTarget) return;
-
-        // Атака
-        long now = System.currentTimeMillis();
-        float delay = 1000f / cpsWithJitter();
-        if (now - lastAttack < (long) delay) return;
+        if (!hasTarget) { nextAttackTime = 0L; return; }
         if (onlyVisible && !mc.player.canSee(target)) return;
 
-        mc.player.swingHand(Hand.MAIN_HAND);
-        mc.interactionManager.attackEntity(mc.player, target);
-        lastAttack = now;
+        attemptAttack(mc);
     }
 
     /**
-     * Главная логика ротации в момент когда цель ЕСТЬ — порт SPAngle.limitAngleChange.
+     * Человекоподобный тайминг: атакуем только когда наступило nextAttackTime
+     * (запланированное заранее с джиттером), а не спамим каждый тик.
+     * Перед хитом — опциональный crit jump.
      */
+    private void attemptAttack(MinecraftClient mc) {
+        long now = System.currentTimeMillis();
+
+        // Crit jump: если запланирован, прыгаем чуть раньше хита чтобы успеть упасть
+        if (jumpQueued && critJump && mc.player.isOnGround()) {
+            long timeUntilHit = nextAttackTime - now;
+            // Прыгаем если до хита осталось 80-200мс — типичное окно для крита
+            if (timeUntilHit > 0 && timeUntilHit < 220) {
+                mc.player.jump();
+                jumpQueued = false;
+            }
+        }
+
+        if (now < nextAttackTime) return;
+
+        mc.player.swingHand(Hand.MAIN_HAND);
+        mc.interactionManager.attackEntity(mc.player, target);
+
+        scheduleNextAttack(false);
+        jumpQueued = critJump; // готовим следующий крит-прыжок
+    }
+
+    /** Планирует следующий клик с CPS + гауссовым джиттером (реалистичное распределение) */
+    private void scheduleNextAttack(boolean firstHit) {
+        float baseDelay = 1000f / cps;
+        float jitter = (float) rng.nextGaussian() * (1000f / cps) * (cpsVariance / cps);
+        float delay = Math.max(60f, baseDelay + jitter); // минимум 60мс между кликами
+
+        // Первый хит после получения цели — чуть быстрее (имитация реакции игрока)
+        if (firstHit) delay *= 0.6f;
+
+        nextAttackTime = System.currentTimeMillis() + (long) delay;
+    }
+
     private float[] limitAngleChange(float[] targetAngles) {
         hadTargetLastTick = true;
         resetRelease();
@@ -145,49 +188,35 @@ public class KillAuraModule implements IModule {
             newYaw = currentYaw + yawDelta * yawScale;
         }
 
-        // Sway (тряска во время атаки — имитация дрожания руки)
         newYaw += applyShake();
-
         return new float[]{newYaw, newPitch};
     }
 
-    /**
-     * Логика при ОТСУТСТВИИ цели — release hold + slowdown.
-     * Порт SPAngle: при потере цели ротация замирает на 150мс,
-     * потом плавно (ease) возвращается к естественному взгляду.
-     */
-    private float[] handleRelease(float[] naturalAngles, boolean hasTarget) {
+    private float[] handleRelease(float[] naturalAngles) {
         long now = System.currentTimeMillis();
         boolean lostTargetThisTick = hadTargetLastTick;
 
         if (lostTargetThisTick && !releaseHoldActive && !releaseSlowdownActive) {
-            releaseHoldActive  = true;
-            releaseHoldUntil   = now + RELEASE_HOLD_MS;
-            releaseFromAngle   = new float[]{currentYaw, currentPitch};
-            releaseToAngle     = naturalAngles.clone();
+            releaseHoldActive = true;
+            releaseHoldUntil  = now + RELEASE_HOLD_MS;
+            releaseFromAngle  = new float[]{currentYaw, currentPitch};
+            releaseToAngle    = naturalAngles.clone();
         }
         hadTargetLastTick = false;
 
-        // Фаза 1: заморозка (hold)
         if (releaseHoldActive && now < releaseHoldUntil) {
             float[] frozen = releaseFromAngle != null ? releaseFromAngle : new float[]{currentYaw, currentPitch};
             return new float[]{frozen[0], frozen[1]};
         }
 
-        // Переход hold → slowdown
         if (releaseHoldActive && !releaseSlowdownActive) {
             releaseSlowdownActive = true;
             releaseSlowdownStart  = now;
         }
 
-        // Нет активной анимации release — просто следуем естественному взгляду
-        if (!releaseSlowdownActive) {
-            return naturalAngles;
-        }
+        if (!releaseSlowdownActive) return naturalAngles;
 
-        // Фаза 2: плавный возврат (slowdown)
-        float progress = MathHelper.clamp(
-                (float)(now - releaseSlowdownStart) / RELEASE_SLOWDOWN_MS, 0f, 1f);
+        float progress = MathHelper.clamp((float)(now - releaseSlowdownStart) / RELEASE_SLOWDOWN_MS, 0f, 1f);
         float eased = ease(progress);
 
         float[] from = releaseFromAngle != null ? releaseFromAngle : new float[]{currentYaw, currentPitch};
@@ -197,7 +226,6 @@ public class KillAuraModule implements IModule {
         float interpPitch = MathHelper.clamp(MathHelper.lerp(eased, from[1], to[1]), -89f, 90f);
 
         if (progress >= 1f) resetRelease();
-
         return new float[]{interpYaw, interpPitch};
     }
 
@@ -210,35 +238,23 @@ public class KillAuraModule implements IModule {
         releaseToAngle   = null;
     }
 
-    /** Тряска руки во время атаки (sin волна с гауссовым шумом) */
     private float applyShake() {
         float time      = (System.currentTimeMillis() % 12000L) / 1200.0f;
         float swayPhase = time * SHAKE_SPEED * (float)(Math.PI * 2);
-        return (float)(Math.sin(swayPhase) * SHAKE_INTENSITY * gaussian());
+        return (float)(Math.sin(swayPhase) * SHAKE_INTENSITY * rng.nextGaussian());
     }
 
     private float ease(float t) { return t * (0.5f + 0.5f * t); }
-
-    private float gaussian() {
-        // Box-Muller приближение через Random.nextGaussian()
-        return (float) rng.nextGaussian();
-    }
 
     private float randomBetween(float min, float max) {
         return MathHelper.lerp(rng.nextFloat(), min, max);
     }
 
-    /** GCD snap — обязателен для легитности ротаций */
     private float gcdSnap(float newVal, float oldVal, float sensitivity) {
         float f   = sensitivity * 0.6f + 0.2f;
         float gcd = f * f * f * 1.2f * 0.15f;
         float delta = Math.round((newVal - oldVal) / gcd) * gcd;
         return oldVal + delta;
-    }
-
-    private float cpsWithJitter() {
-        float jitter = (float) rng.nextGaussian() * 1.5f;
-        return Math.max(1f, cps + jitter);
     }
 
     private float[] getAnglesTo(PlayerEntity from, Vec3d to) {
