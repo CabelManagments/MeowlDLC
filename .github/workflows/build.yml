@@ -21,7 +21,9 @@ jobs:
           distribution: 'temurin'
 
       - name: Install ffmpeg and imagemagick
-        run: sudo apt-get install -y ffmpeg imagemagick
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg imagemagick
 
       - name: Convert MP3 sounds to OGG
         run: |
