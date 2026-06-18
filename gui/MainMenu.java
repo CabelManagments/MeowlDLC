@@ -46,15 +46,16 @@ public class MainMenu extends Screen {
     public void render(DrawContext ctx, int mx, int my, float delta) {
         if (fadeIn < 1f) fadeIn = Math.min(1f, fadeIn + 0.03f);
 
-        // Фон: пробуем нашу текстуру, иначе тёмно-фиолетовый градиент
+        // Фон: градиент по умолчанию (надёжнее чем текстура, которая может отсутствовать)
+        drawFallbackGradient(ctx);
         try {
             ctx.drawTexture(
                 net.minecraft.client.render.RenderLayer::getGuiTextured,
                 BG, 0, 0, 0, 0, width, height, width, height
             );
             ctx.fill(0, 0, width, height, new Color(0,0,0,120).getRGB());
-        } catch (Exception e) {
-            drawFallbackGradient(ctx);
+        } catch (Exception | Error ignored) {
+            // Текстуры нет — остаёмся на градиенте, уже отрисованном выше
         }
 
         var font = client.textRenderer;
@@ -66,17 +67,16 @@ public class MainMenu extends Screen {
         int titleColor = Color.getHSBColor(0.97f, 0.55f, 1f).getRGB();
 
         if (FontRenderer.INSTANCE.isReady()) {
-            float scale = 3.2f;
-            int tw = FontRenderer.INSTANCE.getWidth(TITLE, scale);
-            FontRenderer.INSTANCE.drawString(ctx, TITLE, (width - tw) / 2f, titleY, scale,
-                    RenderUtil.withAlpha(titleColor, (int)(fadeIn*255)));
+            try {
+                float scale = 3.2f;
+                int tw = FontRenderer.INSTANCE.getWidth(TITLE, scale);
+                FontRenderer.INSTANCE.drawString(ctx, TITLE, (width - tw) / 2f, titleY, scale,
+                        RenderUtil.withAlpha(titleColor, (int)(fadeIn*255)));
+            } catch (Exception | Error e) {
+                drawVanillaTitle(ctx, font, titleY, titleColor);
+            }
         } else {
-            int tw = font.getWidth(TITLE) * 3;
-            ctx.getMatrices().push();
-            ctx.getMatrices().scale(3,3,1);
-            ctx.drawText(font, TITLE, (int)((width - tw)/2f/3), (int)(titleY/3),
-                    RenderUtil.withAlpha(titleColor,(int)(fadeIn*255)), false);
-            ctx.getMatrices().pop();
+            drawVanillaTitle(ctx, font, titleY, titleColor);
         }
 
         // Время
@@ -98,6 +98,15 @@ public class MainMenu extends Screen {
                 RenderUtil.withAlpha(new Color(140,140,150,255).getRGB(), (int)(fadeIn*200)), false);
 
         super.render(ctx, mx, my, delta);
+    }
+
+    private void drawVanillaTitle(DrawContext ctx, net.minecraft.client.font.TextRenderer font, float titleY, int titleColor) {
+        int tw = font.getWidth(TITLE) * 3;
+        ctx.getMatrices().push();
+        ctx.getMatrices().scale(3,3,1);
+        ctx.drawText(font, TITLE, (int)((width - tw)/2f/3), (int)(titleY/3),
+                titleColor, false);
+        ctx.getMatrices().pop();
     }
 
     private void drawFallbackGradient(DrawContext ctx) {
