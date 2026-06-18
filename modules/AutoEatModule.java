@@ -56,8 +56,8 @@ public class AutoEatModule implements IModule {
         int foodSlot = findFoodSlot(mc);
         if (foodSlot == -1) return;
 
-        savedSlot = mc.player.getInventory().getSelectedSlot();
-        mc.player.getInventory().setSelectedSlot(foodSlot);
+        savedSlot = mc.player.getInventory().selectedSlot;
+        mc.player.getInventory().selectedSlot = foodSlot;
         mc.options.useKey.setPressed(true);
         eating  = true;
         eatTicks = 0;
@@ -67,7 +67,7 @@ public class AutoEatModule implements IModule {
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.options != null) mc.options.useKey.setPressed(false);
         if (savedSlot != -1 && mc.player != null) {
-            mc.player.getInventory().setSelectedSlot(savedSlot);
+            mc.player.getInventory().selectedSlot = savedSlot;
             savedSlot = -1;
         }
         eating = false;
@@ -93,4 +93,3 @@ public class AutoEatModule implements IModule {
         return stack.contains(DataComponentTypes.FOOD);
     }
 }
-
