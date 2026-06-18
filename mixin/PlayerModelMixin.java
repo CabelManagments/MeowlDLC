@@ -4,10 +4,12 @@ import com.yourcheat.CheatMod;
 import com.yourcheat.model.RabbitEntityModel;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.entity.PlayerEntityRenderer;
-import net.minecraft.client.render.entity.model.EntityModelLoader;
 import net.minecraft.client.render.entity.state.PlayerEntityRenderState;
-import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.client.render.OverlayTexture;
+import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexConsumerProvider;
+import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.util.Identifier;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -15,19 +17,19 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
  * Подменяет рендер модели игрока на RabbitEntityModel когда CustomModels включён
- * и текущая выбранная модель — "Crazy Rabbit". Применяется к себе и (опционально) друзьям.
- *
- * Подход: рисуем кастомную модель ПОВЕРХ обычной (cancel оригинального render
- * сложнее из-за приватных полей PlayerEntityRenderer, поэтому используем HEAD-инъекцию
- * на render() и рисуем кролика, а ванильную модель скрываем через invisible-трюк
- * не требуется — кролик крупнее и визуально перекрывает скин).
+ * и текущая выбранная модель — "Crazy Rabbit". Рисуется поверх ванильной модели
+ * (полный cancel требует Accessor на приватные поля рендерера — пока не нужен,
+ * т.к. кролик крупнее и визуально перекрывает скин игрока).
  */
 @Mixin(PlayerEntityRenderer.class)
-public class PlayerModelMixin {
+public abstract class PlayerModelMixin {
 
     private static RabbitEntityModel rabbitModel;
 
-    @Inject(method = "render", at = @At("HEAD"))
+    @Inject(
+        method = "render(Lnet/minecraft/client/render/entity/state/PlayerEntityRenderState;Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;I)V",
+        at = @At("HEAD")
+    )
     private void onRenderHead(PlayerEntityRenderState state, MatrixStack matrices,
                                VertexConsumerProvider vcp, int light, CallbackInfo ci) {
         if (!CheatMod.customModels.isEnabled()) return;
@@ -36,12 +38,8 @@ public class PlayerModelMixin {
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.player == null) return;
 
-        // TODO: точная проверка self/friend по имени из state требует доступа
-        // к полю profileName — для упрощения сейчас рисуем для всех игроков
-        // если модуль включён (можно ограничить позже через FriendStorage-аналог).
-
         if (rabbitModel == null) {
-            EntityModelLoader loader = mc.getEntityModelLoader();
+            var loader = mc.getEntityModelLoader();
             rabbitModel = new RabbitEntityModel(loader.getModelPart(RabbitEntityModel.LAYER));
         }
 
@@ -51,12 +49,11 @@ public class PlayerModelMixin {
 
         rabbitModel.setAngles(state);
 
-        var vc = vcp.getBuffer(net.minecraft.client.render.RenderLayer.getEntityCutout(
-                net.minecraft.util.Identifier.of("yourcheat", "textures/models/rabbit.png")));
+        var vc = vcp.getBuffer(RenderLayer.getEntityCutout(
+                Identifier.of("yourcheat", "textures/models/rabbit.png")));
 
-        rabbitModel.render(matrices, vc, light, net.minecraft.client.render.OverlayTexture.DEFAULT_UV, 0xFFFFFFFF);
+        rabbitModel.render(matrices, vc, light, OverlayTexture.DEFAULT_UV, 0xFFFFFFFF);
 
         matrices.pop();
     }
 }
-
