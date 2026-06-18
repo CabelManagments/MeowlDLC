@@ -2,6 +2,7 @@ package com.yourcheat.modules;
 
 import com.yourcheat.gui.ClickGUI;
 import com.yourcheat.gui.RenderUtil;
+import com.yourcheat.gui.RollingNumber;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
@@ -11,9 +12,16 @@ import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Watermark в стиле Kronex: "MeowlDLC • username • pingms • fps"
+ * с градиентным именем клиента и плавно интерполируемыми числами.
+ */
 public class WatermarkModule implements IModule {
 
     private boolean enabled = true;
+
+    private final RollingNumber fps  = new RollingNumber(0, 0.12f);
+    private final RollingNumber ping = new RollingNumber(0, 0.08f);
 
     @Override public String getName()           { return "Watermark"; }
     @Override public boolean isEnabled()        { return enabled; }
@@ -30,56 +38,49 @@ public class WatermarkModule implements IModule {
         if (mc.player == null) return;
 
         var font = mc.textRenderer;
-        int accentColor = com.yourcheat.gui.ClickGUI.ACCENT_COLOR;
+        String separator = " \u2022 "; // •
 
-        // Анимированный цвет названия
-        float hue = (System.currentTimeMillis() % 4000L) / 4000f;
-        // Ограничиваем в фиолетовом диапазоне
-        hue = 0.72f + (float)(Math.sin(System.currentTimeMillis() / 1500.0) * 0.05f);
-        int titleColor = Color.getHSBColor(hue, 0.7f, 0.95f).getRGB();
-
-        // Основная ватермарка
-        String name  = "MeowlDLC";
-        String sep   = " | ";
-        String fps   = mc.getCurrentFps() + " fps";
-        String ping  = "";
-        var handler = mc.getNetworkHandler();
-        if (handler != null) {
-            var entry = handler.getPlayerListEntry(mc.player.getUuid());
-            if (entry != null) ping = entry.getLatency() + "ms";
+        fps.setTarget(mc.getCurrentFps());
+        var nh = mc.getNetworkHandler();
+        if (nh != null) {
+            var entry = nh.getPlayerListEntry(mc.player.getUuid());
+            ping.setTarget(entry != null ? Math.max(entry.getLatency(), 0) : 0);
         }
 
-        int nameW = font.getWidth(name);
-        int sepW  = font.getWidth(sep);
-        int fpsW  = font.getWidth(fps);
-        int pingW = font.getWidth(ping);
+        String clientName = "MeowlDLC";
+        String username    = separator + mc.getSession().getUsername();
+        String pingPart     = separator + ping.getInt() + "ms";
+        String fpsPart       = separator + fps.getInt() + "fps";
 
-        int totalW = nameW + sepW + fpsW + (ping.isEmpty() ? 0 : sepW + pingW) + 16;
-        int h = 14;
+        int nameW = font.getWidth(clientName);
+        int userW = font.getWidth(username);
+        int pingW = font.getWidth(pingPart);
+        int fpsW  = font.getWidth(fpsPart);
+        int totalW = nameW + userW + pingW + fpsW + 10;
 
-        // Фон
-        RenderUtil.drawRoundedRect(ctx, 4, 4, totalW, h, 4f,
-                new Color(16, 12, 18, 200).getRGB());
-        // Акцент-полоска
-        RenderUtil.drawRoundedRect(ctx, 4, 4, 2, h, 1f, accentColor | 0xFF000000);
+        int x = 5, y = 5, h = 16;
 
-        // Текст
-        int tx = 10, ty = 7;
-        ctx.drawText(font, name, tx, ty, titleColor, false);
+        // Фон с акцентной полоской (наш стиль RenderUtil)
+        RenderUtil.drawRoundedRect(ctx, x, y, totalW, h, 4f,
+                new Color(16, 14, 18, 215).getRGB());
+
+        // Анимированный градиентный цвет имени клиента
+        long t = System.currentTimeMillis();
+        float hue = 0.74f + (float)(Math.sin(t / 1800.0) * 0.05f);
+        int nameColor = Color.getHSBColor(hue, 0.65f, 0.95f).getRGB();
+
+        int tx = x + 6, ty = y + (h - 8) / 2;
+        ctx.drawText(font, clientName, tx, ty, nameColor, false);
         tx += nameW;
-        ctx.drawText(font, sep, tx, ty, new Color(80, 80, 90, 220).getRGB(), false);
-        tx += sepW;
-        ctx.drawText(font, fps, tx, ty, new Color(200, 200, 200, 220).getRGB(), false);
-        if (!ping.isEmpty()) {
-            tx += fpsW;
-            ctx.drawText(font, sep, tx, ty, new Color(80, 80, 90, 220).getRGB(), false);
-            tx += sepW;
-            // Цвет пинга
-            int p = 0;
-            try { p = Integer.parseInt(ping.replace("ms","")); } catch (Exception ignored) {}
-            int pingColor = p < 80 ? 0xFF55FF55 : p < 150 ? 0xFFFFAA00 : 0xFFFF5555;
-            ctx.drawText(font, ping, tx, ty, pingColor, false);
-        }
+        ctx.drawText(font, username, tx, ty, new Color(210,210,210,255).getRGB(), false);
+        tx += userW;
+
+        // Цвет пинга по значению
+        int p = ping.getInt();
+        int pingColor = p < 80 ? 0xFF7CFF7C : p < 150 ? 0xFFFFC95C : 0xFFFF6B6B;
+        ctx.drawText(font, pingPart, tx, ty, pingColor, false);
+        tx += pingW;
+
+        ctx.drawText(font, fpsPart, tx, ty, new Color(190,190,200,255).getRGB(), false);
     }
 }
-

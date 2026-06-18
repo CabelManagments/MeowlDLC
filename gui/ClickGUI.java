@@ -55,6 +55,11 @@ public class ClickGUI extends Screen {
         bycat.get(Category.PLAYER).add(CheatMod.watermark);
         bycat.get(Category.COMBAT).add(CheatMod.killAura);
         bycat.get(Category.MISC).add(CheatMod.timeChanger);
+        bycat.get(Category.VISUAL).add(CheatMod.fullBright);
+        bycat.get(Category.VISUAL).add(CheatMod.crosshair);
+        bycat.get(Category.MISC).add(CheatMod.zoom);
+        bycat.get(Category.MISC).add(CheatMod.autoEat);
+        bycat.get(Category.MISC).add(CheatMod.noFluid);
         for (Category c : Category.values()) {
             columns.put(c, bycat.get(c).stream().map(ModuleRow::new).collect(Collectors.toList()));
             targetScroll.put(c, 0f); currentScroll.put(c, 0f);

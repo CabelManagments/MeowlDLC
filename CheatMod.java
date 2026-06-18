@@ -39,6 +39,11 @@ public class CheatMod implements ClientModInitializer {
     public static final KillAuraModule     killAura     = new KillAuraModule();
     // Misc
     public static final TimeChangerModule  timeChanger  = new TimeChangerModule();
+    public static final FullBrightModule   fullBright   = new FullBrightModule();
+    public static final ZoomModule         zoom         = new ZoomModule();
+    public static final CrosshairModule    crosshair    = new CrosshairModule();
+    public static final AutoEatModule      autoEat      = new AutoEatModule();
+    public static final NoFluidModule      noFluid      = new NoFluidModule();
 
     @Override
     public void onInitializeClient() {
@@ -66,6 +71,9 @@ public class CheatMod implements ClientModInitializer {
             jumpCircle.tick();
             killAura.tick();
             timeChanger.tick();
+            zoom.tick();
+            autoEat.tick();
+            fullBright.tick();
         });
 
         WorldRenderEvents.AFTER_ENTITIES.register(ctx -> {
@@ -81,6 +89,7 @@ public class CheatMod implements ClientModInitializer {
         HUD.getInstance().register();
         targetHUD.register();
         watermark.register();
+        crosshair.register();
 
         AttackEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
             if (world.isClient && entity instanceof LivingEntity living) {
