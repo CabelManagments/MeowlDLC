@@ -101,7 +101,9 @@ public class ModuleRow {
     public boolean mouseClicked(float mx, float my, int btn) {
         if (binding) return true;
         boolean hovered = mx >= x && mx <= x+width && my >= y && my <= y+baseH;
-        if (hovered) {
+        // В новом стиле full-width row высота ряда ~50px, не baseH — проверяем через большую зону
+        boolean hoveredFullRow = mx >= x && mx <= x+width && my >= y && my <= y+50f;
+        if (hoveredFullRow) {
             if (btn == 0) {
                 module.toggle();
                 if (module.isEnabled()) com.yourcheat.util.SoundManager.playEnable();
@@ -144,4 +146,40 @@ public class ModuleRow {
     public void setY(float y) { this.y = y; }
     public void setWidth(float w) { this.width = w; }
     public IModule getModule() { return module; }
+    /**
+     * Полноширинная строка модуля в стиле двухколоночного списка:
+     * название слева, toggle-свитч справа, активный модуль подсвечен ярче.
+     */
+    public void drawFullWidthRow(DrawContext ctx, int mx, int my, float pt, float parentAlpha, float rowHeight) {
+        boolean enabled = module.isEnabled();
+        boolean hovered = mx >= x && mx <= x + width && my >= y && my <= y + rowHeight;
+
+        int bgAlpha = (int)(parentAlpha * (enabled ? 60 : (hovered ? 35 : 15)));
+        int bg = enabled
+                ? new Color(124, 92, 255, bgAlpha).getRGB()
+                : new Color(255, 255, 255, bgAlpha).getRGB();
+
+        RenderUtil.drawRoundedRect(ctx, x, y, width, rowHeight, 10f, bg);
+
+        var font = MinecraftClient.getInstance().textRenderer;
+        int textColor = enabled
+                ? RenderUtil.withAlpha(0xFFFFFFFF, (int)(parentAlpha*255))
+                : RenderUtil.withAlpha(0xFFB0AEBB, (int)(parentAlpha*255));
+
+        ctx.drawText(font, module.getName(), (int)(x + 20), (int)(y + rowHeight/2f - 4), textColor, false);
+
+        // Toggle-свитч справа (фиолетовый, скруглённый pill)
+        float swW = 38, swH = 20;
+        float swX = x + width - swW - 16, swY = y + rowHeight/2f - swH/2f;
+
+        int swBg = enabled
+                ? RenderUtil.withAlpha(ClickGUI.ACCENT_COLOR, (int)(parentAlpha*255))
+                : new Color(50, 48, 58, (int)(parentAlpha*220)).getRGB();
+        RenderUtil.drawRoundedRect(ctx, swX, swY, swW, swH, swH/2f, swBg);
+
+        float knobSize = swH - 4;
+        float knobX = enabled ? swX + swW - knobSize - 2 : swX + 2;
+        RenderUtil.drawRoundedRect(ctx, knobX, swY + 2, knobSize, knobSize, knobSize/2f,
+                RenderUtil.withAlpha(0xFFFFFFFF, (int)(parentAlpha*255)));
+    }
 }
