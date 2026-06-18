@@ -44,9 +44,15 @@ public class CheatMod implements ClientModInitializer {
     public static final CrosshairModule    crosshair    = new CrosshairModule();
     public static final AutoEatModule      autoEat      = new AutoEatModule();
     public static final NoFluidModule      noFluid      = new NoFluidModule();
+    public static final CustomModelsModule customModels = new CustomModelsModule();
 
     @Override
     public void onInitializeClient() {
+        net.fabricmc.fabric.api.client.rendering.v1.EntityModelLayerRegistry.registerModelLayer(
+            com.yourcheat.model.RabbitEntityModel.LAYER,
+            com.yourcheat.model.RabbitEntityModel::getTexturedModelData
+        );
+
         guiKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
             "key.yourcheat.gui",
             InputUtil.Type.KEYSYM,

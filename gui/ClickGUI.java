@@ -57,6 +57,7 @@ public class ClickGUI extends Screen {
         bycat.get(Category.VISUAL).add(CheatMod.nimb);
         bycat.get(Category.VISUAL).add(CheatMod.fullBright);
         bycat.get(Category.VISUAL).add(CheatMod.crosshair);
+        bycat.get(Category.VISUAL).add(CheatMod.customModels);
 
         bycat.get(Category.HUD).add(CheatMod.targetHUD);
         bycat.get(Category.HUD).add(CheatMod.watermark);

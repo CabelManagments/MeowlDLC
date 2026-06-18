@@ -2,7 +2,6 @@
   "required": true,
   "package": "com.yourcheat.mixin",
   "compatibilityLevel": "JAVA_21",
-  "client": ["TitleScreenMixin", "InGameHudMixin"],
+  "client": ["TitleScreenMixin", "InGameHudMixin", "PlayerModelMixin"],
   "injectors": { "defaultRequire": 1 }
 }
-
